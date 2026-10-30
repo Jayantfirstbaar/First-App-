@@ -1,0 +1,6 @@
+{
+  "name": "QuoteBack AI",
+  "description": "AI-powered lead follow-up, quotation tracking, and sales pipeline management for interior designers and businesses.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

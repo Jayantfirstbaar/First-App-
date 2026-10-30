@@ -1,0 +1,736 @@
+# MASTER BUILD PROMPT — QUOTEBACK AI
+## Build a Complete, Premium, Production-Oriented Android Business App
+
+Act as a senior Android engineer, product designer, SaaS architect, AI engineer, database engineer, security engineer, and QA tester. Your task is to design, implement, test, and finish a complete working Android application called **QuoteBack AI**.
+
+Do not merely generate a UI mockup, landing page, design preview, or product plan. Build the actual functional application, including navigation, persistent data, backend integration, AI functionality, notifications, subscription infrastructure, validation, error handling, and working user flows.
+
+**Build the application now. Do not stop at planning, ask unnecessary questions, or replace real functionality with fake buttons.** Make sensible product decisions independently. Inspect the current project's capabilities first and use the supported Rork-native integrations.
+
+---
+
+# 1. PRODUCT VISION
+
+**App name:** QuoteBack AI  
+**Category:** AI-powered lead follow-up and sales management SaaS  
+**Initial market:** India  
+**Target users:** Independent interior designers, modular kitchen businesses, small interior design studios, and businesses that send project quotations to potential customers.
+
+### The problem
+
+Small business owners receive enquiries through WhatsApp, Instagram, phone calls, referrals, and websites. They send quotations but often forget to follow up, lose track of potential clients, and fail to maintain an organised sales pipeline.
+
+Traditional CRM software can feel complicated for small business owners.
+
+### Our solution
+
+QuoteBack AI helps business owners:
+
+1. Store and organise customer enquiries.
+2. Track quotations and potential deal values.
+3. Know which customer needs a follow-up today.
+4. Generate personalised AI follow-up messages in English, Hindi, or Hinglish.
+5. Open WhatsApp with the message prefilled for the owner to review and send.
+6. Track customer responses, sales outcomes, and business performance.
+7. Understand which opportunities are pending, won, or lost.
+
+### Core product promise
+
+**Never lose track of a promising customer because you forgot to follow up.**
+
+The app should feel like a practical digital sales assistant, not a complicated CRM.
+
+---
+
+# 2. TECHNICAL REQUIREMENTS
+
+Build a genuine native Android application using Rork's supported Android stack:
+
+- Kotlin.
+- Jetpack Compose.
+- Material Design 3.
+- Modern Android architecture with ViewModels, repositories, and reactive UI state.
+- Type-safe navigation.
+- A reliable persistent database.
+- Rork Backend for authentication, hosted PostgreSQL, secure server functions, and cloud data synchronization wherever available.
+- Rork's supported server-side AI integration for message generation.
+- RevenueCat integration for subscription purchases, if supported by the current project and plan.
+- Native Android notification APIs for follow-up reminders.
+
+Use the backend and integrations actually supported by the current Rork environment. Inspect the existing project's configuration before making changes.
+
+Do not introduce unnecessary libraries, duplicate frameworks, or fragile workarounds.
+
+Keep code modular, maintainable, and suitable for continued development.
+
+If a service requires credentials or external configuration, build its integration points and clearly identify the exact missing configuration. Never claim that an integration is connected when it is not.
+
+**Security rule:** Never embed private AI API keys, service-role database keys, payment secrets, or other server credentials in Android source code or the application bundle. All secret-dependent operations must run server-side.
+
+---
+
+# 3. PREMIUM UI AND DESIGN SYSTEM
+
+Create a polished, premium, modern business application comparable in quality to the best contemporary SaaS mobile products.
+
+### Visual direction
+
+- Clean, spacious, minimal, professional.
+- Warm off-white backgrounds.
+- Deep midnight navy for primary text and selected navigation elements.
+- Restrained emerald-green accents for positive sales outcomes and successful actions.
+- Soft neutral-grey surfaces and borders.
+- Clear typography, carefully designed spacing, rounded cards, subtle shadows, and consistent iconography.
+- Use Material 3 components with a cohesive custom theme.
+- Support light and dark modes.
+- Use smooth but restrained transitions and animations.
+- Ensure readable contrast and accessible touch targets.
+- Support small and large Android screens.
+
+Avoid excessive gradients, random colours, unnecessary glassmorphism, excessive cards, oversized headings, emojis as icons, and generic AI-generated dashboard aesthetics.
+
+Every screen must look intentionally designed and consistent.
+
+Include polished loading, empty, error, retry, offline, confirmation, success, and permission-denied states.
+
+Never leave lorem ipsum, placeholder buttons, dead navigation links, or unfinished-looking screens.
+
+---
+
+# 4. AUTHENTICATION AND FIRST-TIME ONBOARDING
+
+Implement the complete onboarding and authentication flow.
+
+### Welcome screen
+
+Display:
+
+- QuoteBack AI branding.
+- A clear one-sentence description of the benefit.
+- Create Account.
+- Sign In.
+- A simple premium illustration or abstract visual created using available assets or native UI components.
+
+### Authentication
+
+Implement supported authentication through Rork Backend. Support email sign-up, sign-in, sign-out, password recovery, and Google sign-in if supported and properly configured.
+
+Persist sessions securely. Protect authenticated screens and handle session expiry correctly.
+
+Do not simulate successful authentication.
+
+### Onboarding
+
+Ask for the minimum useful details:
+
+1. Business name.
+2. Business type, preselecting Interior Design.
+3. Business owner's name.
+4. Preferred app language: English, Hindi, or Hinglish where supported.
+5. Time zone, defaulting to Asia/Kolkata.
+6. Optional reminder time.
+
+Allow onboarding to be completed quickly. Do not demand unnecessary profile information.
+
+Include a short explanation of how leads, quotations, AI messages, and reminders work.
+
+After onboarding, open the real dashboard.
+
+---
+
+# 5. MAIN NAVIGATION
+
+Use a clean bottom navigation bar with four primary destinations:
+
+1. Home
+2. Leads
+3. Follow-ups
+4. Reports
+
+Place Settings and subscription management inside the profile/settings area.
+
+Include a clearly visible quick-add action accessible from the Home and Leads screens.
+
+Navigation must work on every screen, preserve appropriate state, handle the Android back button, and avoid duplicated destinations.
+
+---
+
+# 6. HOME DASHBOARD
+
+Create an actionable sales dashboard based entirely on the authenticated user's actual data.
+
+Display:
+
+- Good morning / afternoon / evening greeting.
+- Business name.
+- Leads created this month.
+- Follow-ups due today.
+- Overdue follow-ups.
+- Open quotations and their total potential value.
+- Won deals and recorded sales revenue.
+- A simple monthly sales summary.
+- Upcoming follow-ups.
+- Recent lead activity.
+- Quick actions: Add Lead, Follow Up, Generate Message, View Pipeline.
+
+Each metric must have a clear definition and be calculated from real saved data.
+
+Do not show invented sales, fake charts, hardcoded customer names, fabricated revenue, or fictional conversion percentages.
+
+For new users, show a helpful empty state explaining what to do first and offering a sample lead they can optionally create and delete. Clearly label any sample data.
+
+The dashboard should immediately answer:
+
+**"What should I do today to avoid losing a sale?"**
+
+Prioritise overdue follow-ups and quotations that need attention.
+
+---
+
+# 7. LEAD MANAGEMENT
+
+Build a complete lead management system.
+
+### Add lead form
+
+Fields:
+
+- Customer name, required.
+- Phone number, with India-first validation and international-format support.
+- Lead source: WhatsApp, Instagram, phone call, website, referral, or other.
+- Project type: interior design, modular kitchen, renovation, furniture, or other.
+- Estimated deal value in INR.
+- Quotation amount, if available.
+- Expected project date, optional.
+- Lead status.
+- Next follow-up date and time.
+- Notes.
+- Optional quotation-sent date.
+
+Provide proper validation, helpful field labels, clear errors, save confirmation, and a cancel option.
+
+Warn about possible duplicate phone numbers without blocking legitimate duplicate records.
+
+### Lead list
+
+Implement:
+
+- Search by customer name and phone number.
+- Filters by stage, source, and follow-up status.
+- Sorting by most recent, next follow-up, oldest pending, and deal value.
+- Pagination or efficient incremental loading when needed.
+- Clear empty and error states.
+
+### Lead stages
+
+Use a consistent sales pipeline:
+
+- New
+- Contacted
+- Site Visit Scheduled
+- Quotation Sent
+- Negotiation
+- Won
+- Lost
+
+Require a confirmation before marking a deal Won or Lost. Store the outcome and timestamp.
+
+When marking a lead Lost, optionally capture a loss reason.
+
+Allow the user to edit, archive, restore, or delete a lead. Destructive actions must require confirmation.
+
+---
+
+# 8. LEAD DETAIL AND ACTIVITY TIMELINE
+
+Every lead must have a dedicated detail screen showing:
+
+- Customer information.
+- Phone number.
+- Lead source.
+- Project details.
+- Estimated deal value.
+- Quotation details.
+- Current sales stage.
+- Next follow-up.
+- Notes.
+- A chronological activity timeline.
+- Edit and delete actions.
+- Generate AI Message.
+- Open WhatsApp.
+- Mark Follow-up Complete.
+- Reschedule Follow-up.
+
+Implement activity records for notes, quotation updates, calls, site visits, message drafts, follow-up completion, status changes, and sales outcomes.
+
+Do not automatically claim that a WhatsApp message was sent just because WhatsApp was opened. Record a message as sent only after the user explicitly confirms the action.
+
+Maintain accurate timestamps and update the interface immediately after successful database changes.
+
+---
+
+# 9. FOLLOW-UP INTELLIGENCE
+
+Build a dedicated Follow-ups screen divided into:
+
+- Overdue
+- Due Today
+- Upcoming
+- Completed
+
+Each item should show the customer's name, project type, deal value, last relevant activity, next action, and a prominent action button.
+
+Allow the user to:
+
+- Complete a follow-up.
+- Reschedule it.
+- Add a note.
+- Generate an AI message.
+- Open WhatsApp with a prepared message.
+- Open the full lead details.
+
+After completing a follow-up, ask whether the customer responded or whether another follow-up is required.
+
+If another follow-up is required, allow a new date and time to be selected. Avoid silently scheduling an endless sequence of reminders.
+
+Implement reminder notifications through supported Android scheduling mechanisms. Respect Android notification permissions, device restrictions, the user's selected time zone, and notification preferences.
+
+Handle permission denial gracefully; users must still be able to see follow-ups in the app.
+
+Prevent duplicate reminders, cancel obsolete reminders, and update reminders when appointments are rescheduled or leads are completed.
+
+---
+
+# 10. AI FOLLOW-UP MESSAGE GENERATOR
+
+This is a core paid feature and must work through a real AI integration.
+
+Use Rork's supported server-side AI capability. Implement an isolated message-generation service that the app calls through a secure backend function.
+
+### Inputs
+
+Use relevant information from the selected lead:
+
+- Customer name.
+- Business name.
+- Project type.
+- Quotation amount.
+- Time since quotation was sent.
+- Last recorded activity.
+- Customer's known objection or concern.
+- Purpose of the message.
+- Chosen language and tone.
+
+Do not invent information that is missing.
+
+### Message purposes
+
+Offer:
+
+1. First enquiry response.
+2. Quotation follow-up.
+3. Friendly follow-up after no response.
+4. Site visit confirmation.
+5. Meeting reminder.
+6. Budget concern follow-up.
+7. Negotiation follow-up.
+8. Re-engagement after a long gap.
+9. Thank-you after a successful deal.
+10. Custom message.
+
+### Tone options
+
+- Professional.
+- Friendly.
+- Polite.
+- Concise.
+- Persuasive without pressure.
+
+### Language options
+
+- English.
+- Hindi.
+- Hinglish.
+
+Generate natural, specific, business-appropriate messages rather than generic robotic paragraphs.
+
+### AI output interface
+
+Display:
+
+- An editable message preview.
+- Copy Message.
+- Regenerate.
+- Change Tone.
+- Change Language.
+- Open WhatsApp.
+- Cancel.
+
+Do not send messages automatically.
+
+WhatsApp action must open the official WhatsApp link or supported Android intent with a validated phone number and URL-encoded message prefilled. Fall back to a browser or show a helpful error if WhatsApp is unavailable.
+
+The user must review and manually send the message.
+
+Handle missing phone numbers, empty fields, AI timeouts, unavailable services, rate limits, invalid output, and network failures.
+
+Do not expose internal prompts, private keys, or provider secrets.
+
+### AI fallback behaviour
+
+If the AI service has not been configured, do not display fabricated AI results. Show a clear setup or temporarily unavailable state and provide a separate, labelled local template option where possible.
+
+If practical within the supported architecture, limit AI output length and avoid unnecessary repeat calls to control costs.
+
+---
+
+# 11. QUOTATION TRACKING
+
+Build a functional quotation workflow.
+
+Allow users to record:
+
+- Quotation amount.
+- Date sent.
+- Optional description.
+- Valid-until date.
+- Current quotation status: Draft, Sent, Accepted, Rejected, or Expired.
+- Next follow-up date.
+
+Provide a dedicated view for pending quotations.
+
+Show quotation age, outstanding potential value, and overdue follow-ups.
+
+Allow the user to generate a follow-up message directly from a quotation.
+
+Calculate the total pending quotation value using valid, non-deleted records. Avoid counting a quotation twice or counting a won deal as an open opportunity.
+
+For the initial release, manual quotation entry is sufficient. Do not add complex PDF generation, e-signatures, invoicing, accounting, or payment collection unless they can be implemented without compromising the core features.
+
+---
+
+# 12. REPORTS AND BUSINESS INSIGHTS
+
+Create a simple, accurate reporting section.
+
+Include:
+
+- Leads created during the selected period.
+- Leads by source.
+- Open quotation value.
+- Total revenue recorded from Won deals.
+- Number of Won and Lost deals.
+- Conversion rate among resolved leads.
+- Follow-ups completed.
+- Overdue follow-ups.
+- A simple sales trend chart when sufficient data exists.
+
+Define conversion rate clearly: Won leads divided by all resolved leads marked Won or Lost during the selected cohort or reporting period. Use a consistent definition throughout the app.
+
+Exclude unresolved leads from the conversion denominator.
+
+Use actual records only. Explain when there is insufficient data.
+
+Never claim that a sale was recovered by the app unless the user explicitly records that relationship. Do not make guaranteed earnings or sales claims.
+
+Allow date-range selection and CSV export if supported. Export only the authenticated user's records, with safe CSV escaping and suitable error handling.
+
+---
+
+# 13. DATABASE AND DATA SECURITY
+
+Implement persistent backend storage with a proper relational schema.
+
+At minimum, create appropriate models/tables for:
+
+### Profiles
+- User ID.
+- Name.
+- Business name.
+- Business type.
+- Language preference.
+- Time zone.
+- Reminder preference.
+- Created and updated timestamps.
+
+### Leads
+- ID.
+- Owner user ID.
+- Customer name.
+- Phone number.
+- Source.
+- Project type.
+- Estimated value.
+- Quotation amount and dates where relevant.
+- Sales stage.
+- Next follow-up.
+- Notes.
+- Loss reason.
+- Created and updated timestamps.
+- Archived/deleted state as appropriate.
+
+### Activities
+- ID.
+- Owner user ID.
+- Lead ID.
+- Activity type.
+- Details.
+- Event timestamp.
+- Follow-up completion timestamp where applicable.
+
+### Quotations
+- ID.
+- Owner user ID.
+- Lead ID.
+- Amount.
+- Description.
+- Sent date.
+- Expiry date.
+- Status.
+- Timestamps.
+
+### Subscription state
+Store only the minimum required subscription references and entitlement state. Treat the payment provider or verified server-side entitlement as the source of truth for paid access.
+
+Add appropriate foreign keys, indexes, uniqueness constraints where suitable, input validation, database migrations, and referential integrity.
+
+### Security requirements
+
+- Enable row-level security or equivalent tenant isolation.
+- Every read and write must be authorised against the authenticated user.
+- Users must never be able to access another user's leads, quotations, activities, or reports by guessing IDs.
+- Enforce ownership on the server, not merely in the UI.
+- Do not trust client-supplied prices or subscription states.
+- Protect server functions against unauthorised calls, abuse, and excessive requests.
+- Store the minimum personal information necessary.
+- Use secure transport and avoid logging sensitive customer data unnecessarily.
+
+Implement account deletion and user-data deletion where supported. If hard deletion has legal or technical limitations, explain them clearly and provide an appropriate data management workflow.
+
+Never use shared global test data as real user data.
+
+---
+
+# 14. FREE AND PRO SUBSCRIPTIONS
+
+Implement a genuine freemium SaaS model.
+
+### Free plan — ₹0
+
+- Basic lead management.
+- Maximum 30 active leads.
+- Maximum 15 AI message generations per month, when the AI integration is configured.
+- Manual follow-up scheduling.
+- Basic dashboard.
+- Basic pipeline.
+- Standard reminders.
+
+### Pro plan — proposed ₹499/month
+
+- Maximum 500 active leads.
+- Maximum 300 AI message generations per month.
+- Advanced quotation tracking.
+- Full reporting.
+- CSV export.
+- Enhanced follow-up workflows.
+- Additional business insights.
+
+Display plan limits clearly. These are initial product limits and must be centralised in configuration rather than scattered across UI files.
+
+Implement a polished subscription/paywall screen showing the benefits, plan comparison, price, renewal terms, and a clear upgrade and restore-purchase flow.
+
+Integrate RevenueCat and supported Google Play Billing functionality if available. Use consistent product identifiers such as `quoteback_pro_monthly` and verify that configured store products match them.
+
+Do not fake payments, grant permanent Pro access merely because a button was clicked, hardcode successful purchase responses, or mark users subscribed based only on local preferences.
+
+Verify subscription entitlements through the appropriate supported billing integration. Handle pending, cancelled, expired, restored, and failed purchases.
+
+Show a helpful configuration state if store products, RevenueCat credentials, or app-store configuration are missing. Do not mislead a user into believing a paid subscription has been purchased.
+
+Respect platform billing requirements. Do not assume that integrating the billing SDK automatically creates Google Play products or activates a subscription.
+
+The application must remain usable on the Free plan even when billing has not been configured.
+
+---
+
+# 15. SETTINGS, PRIVACY, AND ACCOUNT MANAGEMENT
+
+Implement a complete Settings section with:
+
+- Profile management.
+- Business name and business type.
+- Language preferences.
+- Theme selection.
+- Reminder settings.
+- Notification permission status.
+- Subscription and plan management.
+- Restore purchases.
+- Privacy policy.
+- Terms of service.
+- Data export where supported.
+- Delete account and data.
+- Sign out.
+- App version.
+
+Use clearly labelled screens and confirmation dialogs.
+
+Do not publish fabricated privacy-policy claims. Provide a reviewable privacy-policy template and indicate which business practices must be verified before public release.
+
+Do not collect contacts, read WhatsApp conversations, scrape Instagram, or request unnecessary device permissions.
+
+---
+
+# 16. RELIABILITY, PERFORMANCE, AND UX
+
+The application must:
+
+- Launch without crashes.
+- Handle missing network connectivity.
+- Display actionable error messages.
+- Retain saved records after an app restart.
+- Prevent duplicate submissions after repeated taps.
+- Show progress indicators during database and AI operations.
+- Validate all forms.
+- Handle database failures without losing unsaved form input where practical.
+- Avoid blocking the UI during long operations.
+- Display correct INR currency formatting.
+- Handle empty, partial, invalid, and unusually long user inputs.
+- Work on supported Android phones with small and large screens.
+- Avoid excessive battery use and unnecessary background work.
+- Respect Android runtime permissions and lifecycle behaviour.
+
+Do not imply that background reminders are guaranteed under every Android battery-saving configuration.
+
+Keep the app usable on a modest Android device.
+
+Do not implement unnecessary features simply to make the app appear bigger. Reliability and speed matter more than feature count.
+
+---
+
+# 17. DEMO DATA AND FIRST-RUN EXPERIENCE
+
+A first-time user should understand the product within one minute.
+
+Provide a clean empty state with a prominent Add First Lead action.
+
+Optionally offer a clearly labelled demo mode that creates disposable sample records. All sample records must be marked as examples, remain clearly separated from production data, and be removable.
+
+Never mix fictional data into real business analytics.
+
+Explain each core action briefly and avoid long onboarding tutorials.
+
+---
+
+# 18. REQUIRED END-TO-END FUNCTIONAL FLOWS
+
+Implement and verify these complete workflows:
+
+**Flow A — New user**
+
+Welcome → Sign Up → Onboarding → Dashboard → Add Lead → Save → Lead Details.
+
+**Flow B — Quotation follow-up**
+
+Open Lead → Record Quotation → Set Follow-up → Follow-up appears in the correct queue → Generate Message → Edit Message → Open WhatsApp → Manually Send → Confirm the activity in QuoteBack.
+
+**Flow C — Lead conversion**
+
+Open Lead → Update Status → Mark Won → Record outcome → Dashboard and reports update from stored data.
+
+**Flow D — Lost opportunity**
+
+Open Lead → Mark Lost → Optionally record reason → Remove it from open pipeline metrics → Update reports correctly.
+
+**Flow E — Notifications**
+
+Set reminder → Save follow-up → Schedule supported notification → Open notification → Navigate to the corresponding lead → Reschedule or complete it.
+
+**Flow F — Free plan limits**
+
+Use available leads and AI generations → Reach the configured limit → Show an informative upgrade prompt → Continue to use features still allowed by the Free plan.
+
+**Flow G — Subscription**
+
+Open Pro screen → Start purchase → Handle actual billing outcome → Verify entitlement → Unlock paid features → Restore or revoke access according to verified subscription status.
+
+**Flow H — Security**
+
+Authenticate as two separate test users → Create leads for both → Verify that neither user can read, edit, delete, export, or report on the other user's data.
+
+**Flow I — Persistence**
+
+Create and update a lead → Close and reopen the app → Verify that the saved data and correct follow-up state remain intact.
+
+---
+
+# 19. IMPLEMENTATION AND QA PROCESS
+
+Work through implementation autonomously.
+
+1. Inspect the current project and supported Rork integrations.
+2. Establish the app architecture and design system.
+3. Implement all required screens and navigation.
+4. Implement authentication and persistent storage.
+5. Implement server-side AI integration.
+6. Implement reminders and notification handling.
+7. Implement plan enforcement and subscription infrastructure.
+8. Implement reporting and account management.
+9. Run the available build and static checks.
+10. Test the end-to-end workflows listed above.
+11. Fix compilation errors, crashes, navigation defects, database issues, and broken UI actions before declaring completion.
+
+Do not rewrite working project components unnecessarily.
+
+Do not create multiple competing implementations of the same feature.
+
+Do not substitute a local-only mock database for the required cloud backend without explicitly identifying the limitation.
+
+Do not suppress compiler errors, ignore failed tests, or label untested features as verified.
+
+If Rork cannot perform a particular configuration action directly, implement as much as possible and identify that specific external action honestly.
+
+---
+
+# 20. ACCEPTANCE CRITERIA
+
+The initial build is complete only when:
+
+- The Android application has a consistent premium design.
+- Authentication and protected navigation work when configured.
+- Lead and quotation records persist in the intended backend.
+- Data is isolated by authenticated user.
+- Follow-ups can be scheduled, completed, and rescheduled.
+- Real AI generation works when its service is configured.
+- A non-AI fallback is clearly labelled and available where practical.
+- WhatsApp opens with the correct recipient and editable prefilled message.
+- The app does not falsely report messages as sent.
+- Reports use actual stored records and consistent calculations.
+- Free-plan limits are enforced correctly.
+- Subscription code is connected to real billing functionality where configured.
+- Missing billing, AI, or backend setup is clearly identified.
+- All key buttons have actual actions.
+- Loading, error, empty, and permission states are handled.
+- The app compiles successfully and the implemented tests pass.
+
+If any criterion cannot be completed because an external service or credential is unavailable, isolate the blocker instead of pretending it is complete.
+
+---
+
+# 21. FINAL DELIVERY REPORT
+
+After implementation, provide a concise but specific completion report covering:
+
+1. Screens and features implemented.
+2. Backend, database, and authentication configuration.
+3. AI integration status.
+4. Notification implementation status.
+5. Subscription and Google Play product configuration status.
+6. Build and test results.
+7. Remaining external setup actions, if any.
+8. Known limitations and the exact next actions required before production release.
+
+Clearly distinguish between features that were implemented, features actually tested, and features awaiting external configuration.
+
+Build QuoteBack AI as a cohesive, usable native Android SaaS application. Prioritise the core business outcome: helping small business owners organise leads, follow up on quotations, and manage sales opportunities with minimal effort.
+
+**Start building the complete application now. Do not stop after presenting a plan or a visual prototype.**
