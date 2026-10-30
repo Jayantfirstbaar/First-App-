@@ -476,6 +476,29 @@ export const api = {
     }
   },
 
+  async getAIHealth(): Promise<{
+    geminiKeyPresent: boolean;
+    firestoreAdminOk: boolean;
+    model: string;
+    status: 'healthy' | 'degraded' | 'error';
+    reason: string;
+  }> {
+    const headers = await this.getHeaders();
+    const res = await fetch('/api/ai/health', {
+      method: 'GET',
+      headers,
+    });
+    if (!res.ok) {
+      let errText = 'Failed to fetch AI health status';
+      try {
+        const json = await res.json();
+        errText = json.error || errText;
+      } catch {}
+      throw new Error(errText);
+    }
+    return res.json();
+  },
+
   async generateAIFollowUp(params: {
     customerName: string;
     businessName: string;
@@ -487,7 +510,15 @@ export const api = {
     purpose: MessagePurpose;
     tone: MessageTone;
     language: MessageLanguage;
-  }): Promise<{ text: string; isFallback: boolean; remainingGenerations: number; reason?: string }> {
+    timeZone?: string;
+  }): Promise<{
+    text: string;
+    isFallback: boolean;
+    remainingGenerations: number;
+    reason?: string;
+    errorCode?: string;
+    hinglishNotice?: string;
+  }> {
     const headers = await this.getHeaders();
     const res = await fetch('/api/gemini/generate-followup', {
       method: 'POST',
@@ -497,11 +528,14 @@ export const api = {
 
     if (!res.ok) {
       let errText = 'Failed to generate AI follow-up';
+      let errData: any = null;
       try {
-        const json = await res.json();
-        errText = json.error || errText;
+        errData = await res.json();
+        errText = errData.hinglishNotice || errData.error || errText;
       } catch {}
-      throw new Error(errText);
+      const error: any = new Error(errText);
+      if (errData?.errorCode) error.errorCode = errData.errorCode;
+      throw error;
     }
     return res.json();
   },

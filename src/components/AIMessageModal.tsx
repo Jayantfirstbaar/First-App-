@@ -53,6 +53,9 @@ export const AIMessageModal: React.FC<AIMessageModalProps> = ({
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [isFallback, setIsFallback] = useState<boolean>(false);
+  const [fallbackReason, setFallbackReason] = useState<string | null>(null);
+  const [fallbackNotice, setFallbackNotice] = useState<string | null>(null);
+  const [errorCode, setErrorCode] = useState<string | null>(null);
   const [copied, setCopied] = useState<boolean>(false);
   const [showConfirmSentDialog, setShowConfirmSentDialog] = useState<boolean>(false);
   const [quotaExceeded, setQuotaExceeded] = useState<boolean>(false);
@@ -192,23 +195,41 @@ export const AIMessageModal: React.FC<AIMessageModalProps> = ({
         purpose,
         tone,
         language,
+        timeZone: user?.timeZone || 'Asia/Kolkata',
       });
 
       setGeneratedMessage(res.text);
       setIsFallback(res.isFallback);
+      setFallbackReason(res.reason || null);
+      setFallbackNotice(res.hinglishNotice || null);
+      setErrorCode(res.errorCode || null);
 
       // Record generation draft activity
       await api.addActivity(
         lead.id,
         'ai_message_generated',
-        `Generated AI follow-up message in ${language.toUpperCase()} (${purpose})`
+        `Generated AI follow-up message in ${language.toUpperCase()} (${purpose})${res.isFallback ? ' [Template fallback]' : ''}`
       );
       if (onActivityAdded) onActivityAdded();
     } catch (err: any) {
-      if (err.message && err.message.includes('limit')) {
+      const code = err.errorCode || '';
+      let friendlyHinglish = err.message || 'Message generate nahi ho paaya.';
+
+      if (code === 'AI_LIMIT_DAILY' || err.message?.includes('DAILY_AI_LIMIT') || err.message?.includes('30')) {
         setQuotaExceeded(true);
+        friendlyHinglish = 'Aaj ka daily AI limit (30 messages) pura ho gaya — kal reset hoga.';
+      } else if (code === 'AI_QUOTA') {
+        friendlyHinglish = 'AI thoda busy hai — kripya 1 minute baad dobara try karein.';
+      } else if (code === 'AI_TIMEOUT') {
+        friendlyHinglish = 'AI response timeout ho gaya (20s) — please dobara try karein.';
+      } else if (code === 'AI_KEY_MISSING') {
+        friendlyHinglish = 'Server par Gemini API key configured nahi hai — template use hua.';
+      } else if (code === 'AI_UNAVAILABLE') {
+        friendlyHinglish = 'AI service se connect nahi ho pa raha — template use karein.';
       }
-      setError(err.message || 'Failed to generate message');
+
+      setError(friendlyHinglish);
+      setErrorCode(code);
     } finally {
       setLoading(false);
     }
@@ -281,9 +302,36 @@ export const AIMessageModal: React.FC<AIMessageModalProps> = ({
 
         {/* Scrollable Body */}
         <div className="p-4 overflow-y-auto space-y-3.5 text-xs sm:text-sm">
-          {error && !quotaExceeded && (
-            <div className="p-2.5 bg-[#FDF2F3] border border-[#F7D2D6] rounded-xl text-[#C83C4B] text-xs">
-              {error}
+          {error && (
+            <div className="p-3 bg-[#FDF2F3] dark:bg-[#C83C4B]/15 border border-[#F7D2D6] dark:border-[#C83C4B]/30 rounded-2xl text-[#C83C4B] dark:text-[#F38B95] text-xs flex items-start space-x-2.5">
+              <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+              <div className="flex-1">
+                <span className="font-bold block">{error}</span>
+                {errorCode && (
+                  <span className="text-[10px] opacity-75 font-mono uppercase tracking-wider block mt-0.5">
+                    Error Code: {errorCode}
+                  </span>
+                )}
+              </div>
+            </div>
+          )}
+
+          {isFallback && !error && (
+            <div className="p-3 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 rounded-2xl text-amber-900 dark:text-amber-200 text-xs flex items-start space-x-2.5 shadow-xs animate-in fade-in">
+              <AlertCircle className="w-4 h-4 shrink-0 text-amber-600 dark:text-amber-400 mt-0.5" />
+              <div className="flex-1 min-w-0">
+                <span className="font-bold block">
+                  AI abhi available nahi — template use hua
+                </span>
+                <span className="text-[11px] opacity-90 block mt-0.5">
+                  {fallbackNotice || fallbackReason || 'Gemini service unreachable. Quick fallback template loaded.'}
+                </span>
+                {errorCode && (
+                  <span className="text-[10px] text-amber-700 dark:text-amber-400 font-mono block mt-0.5">
+                    Code: {errorCode}
+                  </span>
+                )}
+              </div>
             </div>
           )}
 

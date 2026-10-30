@@ -77,10 +77,10 @@ export const ProfileCompletionModal: React.FC<ProfileCompletionModalProps> = ({ 
     try {
       const updates: Partial<UserProfile> = {
         name: fullName.trim(),
-        phoneNumber: phoneValidation.whatsAppNumber,
-        photoURL: photoURL || null as any,
+        phoneNumber: phoneValidation.whatsAppNumber || null as any,
+        photoURL: photoURL ? photoURL : (null as any),
         businessName: businessName.trim() || `${fullName.trim()}'s Studio`,
-        businessType,
+        businessType: businessType || 'Interior Design',
         isProfileComplete: true,
       };
 

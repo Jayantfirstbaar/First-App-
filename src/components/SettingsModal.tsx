@@ -9,6 +9,7 @@ import {
   ShieldCheck,
   CheckCircle2,
 } from 'lucide-react';
+import { AIStatusRow } from './AIStatusRow';
 
 interface SettingsModalProps {
   user: UserProfile | null;
@@ -256,6 +257,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   Send Test
                 </button>
               </div>
+
+              {/* AI Engine Status */}
+              <AIStatusRow />
 
               <div className="pt-1 flex justify-end">
                 <button

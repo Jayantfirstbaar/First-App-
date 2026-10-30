@@ -35,12 +35,15 @@ app.use(helmet({
 }));
 app.use(express.json({ limit: '100kb' }));
 
-// GEMINI Config
-const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
+// Check the model name in AI Studio; default is current free-tier flash model: gemini-3.8-flash
+const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-3.8-flash';
 const DAILY_AI_LIMIT = 30;
 
 // In-memory rate limiting for AI endpoint (max 10 requests per minute per UID)
 const aiRateLimitMap = new Map<string, { count: number; resetAt: number }>();
+
+// In-memory fallback daily quota tracker in case Firestore Admin access to named DB fails
+const aiInMemoryDailyMap = new Map<string, { date: string; count: number }>();
 
 function checkInMemoryRateLimit(uid: string): { allowed: boolean; retryAfterSec?: number } {
   const now = Date.now();
@@ -58,6 +61,109 @@ function checkInMemoryRateLimit(uid: string): { allowed: boolean; retryAfterSec?
 
   userRate.count += 1;
   return { allowed: true };
+}
+
+// Timezone-aware date string (e.g. 2026-10-30 in Asia/Kolkata)
+function getTodayInTimezone(tz: string = 'Asia/Kolkata'): string {
+  try {
+    const formatter = new Intl.DateTimeFormat('en-CA', {
+      timeZone: tz,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    });
+    return formatter.format(new Date());
+  } catch {
+    return new Date().toISOString().split('T')[0];
+  }
+}
+
+interface GeminiCallParams {
+  prompt: string;
+  systemInstruction?: string;
+}
+
+interface GeminiCallResult {
+  text: string;
+}
+
+// Shared Gemini helper used by all AI routes with 20s timeout, retry on 429/503, and structured error logging
+async function callGemini(params: GeminiCallParams): Promise<GeminiCallResult> {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey || apiKey.trim().length === 0) {
+    const err: any = new Error('Gemini API key is not configured on the server.');
+    err.code = 'AI_KEY_MISSING';
+    throw err;
+  }
+
+  const ai = new GoogleGenAI({
+    apiKey,
+    httpOptions: {
+      headers: {
+        'User-Agent': 'aistudio-build',
+      },
+    },
+  });
+
+  const maxAttempts = 2; // 1 attempt + 1 retry with backoff on transient errors
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 20000); // 20s timeout
+
+      const generatePromise = ai.models.generateContent({
+        model: GEMINI_MODEL,
+        contents: params.prompt,
+        config: params.systemInstruction
+          ? { systemInstruction: params.systemInstruction }
+          : undefined,
+      });
+
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        controller.signal.addEventListener('abort', () => {
+          const tErr: any = new Error('AI request timed out after 20 seconds');
+          tErr.code = 'AI_TIMEOUT';
+          reject(tErr);
+        });
+      });
+
+      const response = await Promise.race([generatePromise, timeoutPromise]);
+      clearTimeout(timeoutId);
+
+      const text = response.text?.trim();
+      if (!text) {
+        throw new Error('Empty response received from Gemini');
+      }
+      return { text };
+    } catch (err: any) {
+      const isTimeout = err.code === 'AI_TIMEOUT' || err.name === 'AbortError' || err.message?.includes('timed out');
+      const status = err.status || err.statusCode || (isTimeout ? 408 : 500);
+      const isTransient = status === 429 || status === 503;
+
+      console.error(`[Gemini API Call] Attempt ${attempt}/${maxAttempts} failed:`, {
+        model: GEMINI_MODEL,
+        status,
+        code: isTimeout ? 'AI_TIMEOUT' : status === 429 ? 'AI_QUOTA' : err.code || 'AI_UNAVAILABLE',
+        message: err.message,
+      });
+
+      if (attempt < maxAttempts && isTransient) {
+        console.log(`[Gemini API Call] Retrying in 1500ms due to transient error (status ${status})...`);
+        await new Promise((r) => setTimeout(r, 1500));
+        continue;
+      }
+
+      if (isTimeout) {
+        err.code = 'AI_TIMEOUT';
+      } else if (status === 429 || err.message?.includes('429') || err.message?.includes('RESOURCE_EXHAUSTED')) {
+        err.code = 'AI_QUOTA';
+      } else if (!err.code) {
+        err.code = 'AI_UNAVAILABLE';
+      }
+      throw err;
+    }
+  }
+  throw new Error('Failed to generate AI response after retry');
 }
 
 export interface AuthenticatedRequest extends Request {
@@ -603,16 +709,54 @@ app.post('/api/quotations', async (req: Request, res: Response, next: NextFuncti
   }
 });
 
-// 11. AI Generator Endpoint (Server-Side Gemini with Rate Limits & Quotas)
+// 11. AI Health Check Endpoint (Authenticated)
+app.get('/api/ai/health', async (req: Request, res: Response) => {
+  const geminiKeyPresent = Boolean(process.env.GEMINI_API_KEY && process.env.GEMINI_API_KEY.trim().length > 0);
+  let firestoreAdminOk = false;
+  let firestoreDetails = 'Admin Firestore connected';
+
+  try {
+    // Quick non-blocking probe to verify firebase-admin Firestore connectivity
+    await firestore.collection('users').limit(1).get();
+    firestoreAdminOk = true;
+  } catch (fsErr: any) {
+    firestoreAdminOk = false;
+    firestoreDetails = fsErr?.message || String(fsErr);
+    console.warn('[AI Health Check] Firestore admin database probe warning:', firestoreDetails);
+  }
+
+  let status: 'healthy' | 'degraded' | 'error' = 'healthy';
+  let reason = 'All AI services operational';
+
+  if (!geminiKeyPresent) {
+    status = 'error';
+    reason = 'Gemini key missing on server (GEMINI_API_KEY)';
+  } else if (!firestoreAdminOk) {
+    status = 'degraded';
+    reason = 'Firestore Admin SDK access restricted (in-memory rate limit & quota fallback active)';
+  }
+
+  res.json({
+    geminiKeyPresent,
+    firestoreAdminOk,
+    model: GEMINI_MODEL,
+    status,
+    reason,
+  });
+});
+
+// 12. AI Generator Endpoint (Server-Side Gemini with Rate Limits & Quotas)
 app.post('/api/gemini/generate-followup', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const uid = (req as AuthenticatedRequest).uid;
 
-    // Check In-memory Rate Limit (max 10 requests per min)
+    // 1. Check In-memory Rate Limit (max 10 requests per min)
     const rateCheck = checkInMemoryRateLimit(uid);
     if (!rateCheck.allowed) {
       return res.status(429).json({
         error: `Rate limit exceeded. Please wait ${rateCheck.retryAfterSec} seconds.`,
+        errorCode: 'AI_QUOTA',
+        hinglishNotice: 'AI thoda busy hai — kripya 1 minute baad dobara try karein.',
       });
     }
 
@@ -627,6 +771,7 @@ app.post('/api/gemini/generate-followup', async (req: Request, res: Response, ne
       purpose,
       tone,
       language,
+      timeZone,
     } = req.body;
 
     const sanitize = (str: any, maxLen = 200): string => {
@@ -663,27 +808,42 @@ app.post('/api/gemini/generate-followup', async (req: Request, res: Response, ne
     const validLangs = ['en', 'hi', 'hinglish'];
     const finalLang = validLangs.includes(language) ? language : 'hinglish';
 
-    // Check Daily AI Quota in Firestore Transaction
-    const todayStr = new Date().toISOString().split('T')[0];
+    // 2. Resolve Today Date in User Timezone (default Asia/Kolkata)
+    const userTz = timeZone || 'Asia/Kolkata';
+    const todayStr = getTodayInTimezone(userTz);
+
+    // 3. Best-effort Daily Quota Check (fail-open)
     const userRef = firestore.collection('users').doc(uid);
-
     let currentDailyUsage = 0;
+    let firestoreReadOk = false;
 
-    await firestore.runTransaction(async (transaction) => {
-      const userDoc = await transaction.get(userRef);
-      const data = userDoc.data() || {};
-      const aiUsage = data.aiUsage || {};
-
-      if (aiUsage.date === todayStr) {
-        currentDailyUsage = aiUsage.count || 0;
-      } else {
-        currentDailyUsage = 0;
+    try {
+      const userDoc = await userRef.get();
+      if (userDoc.exists) {
+        const data = userDoc.data() || {};
+        const aiUsage = data.aiUsage || {};
+        if (aiUsage.date === todayStr) {
+          currentDailyUsage = Number(aiUsage.count) || 0;
+        }
+        firestoreReadOk = true;
       }
-
-      if (currentDailyUsage >= DAILY_AI_LIMIT) {
-        throw new Error('DAILY_AI_LIMIT_EXCEEDED');
+    } catch (fsErr: any) {
+      console.warn('[AI Quota Check] Firestore admin read failed, falling back to in-memory quota tracking:', fsErr?.message || fsErr);
+      const inMem = aiInMemoryDailyMap.get(uid);
+      if (inMem && inMem.date === todayStr) {
+        currentDailyUsage = inMem.count;
       }
-    });
+    }
+
+    if (currentDailyUsage >= DAILY_AI_LIMIT) {
+      return res.status(403).json({
+        error: `Daily AI generation limit reached (${DAILY_AI_LIMIT}/day). Please try again tomorrow.`,
+        errorCode: 'AI_LIMIT_DAILY',
+        hinglishNotice: 'Aaj ka daily limit (30 messages) pura ho gaya — kal reset hoga.',
+        limitExceeded: true,
+        remainingGenerations: 0,
+      });
+    }
 
     const getFallbackMessage = (): string => {
       const amtStr = quotationAmount ? `₹${Number(quotationAmount).toLocaleString('en-IN')}` : '';
@@ -696,26 +856,21 @@ app.post('/api/gemini/generate-followup', async (req: Request, res: Response, ne
       return `Hello ${cleanCustName}, hope you are doing well! Following up regarding the proposal ${amtStr ? 'for ' + amtStr + ' ' : ''}for your ${cleanProj} project. Please let us know if you have any questions! Best regards, ${cleanBizName}.`;
     };
 
+    // 4. Verify API Key Presence
     const apiKey = process.env.GEMINI_API_KEY;
-    if (!apiKey) {
+    if (!apiKey || apiKey.trim().length === 0) {
       return res.json({
         text: getFallbackMessage(),
         isFallback: true,
+        errorCode: 'AI_KEY_MISSING',
         reason: 'Gemini API key is not configured on the server.',
-        remainingGenerations: DAILY_AI_LIMIT - currentDailyUsage,
+        hinglishNotice: 'AI abhi available nahi — template use hua (Gemini key missing on server).',
+        remainingGenerations: Math.max(0, DAILY_AI_LIMIT - currentDailyUsage),
       });
     }
 
+    // 5. Invoke Gemini with shared helper
     try {
-      const ai = new GoogleGenAI({
-        apiKey,
-        httpOptions: {
-          headers: {
-            'User-Agent': 'aistudio-build',
-          },
-        },
-      });
-
       const prompt = `You are a polite, persuasive sales consultant for an interior design studio in India.
 Generate a concise, friendly WhatsApp follow-up message for a client.
 
@@ -735,28 +890,16 @@ Rules:
 2. End with "${cleanBizName}".
 3. Return ONLY the message text without intro quotes or explanations.`;
 
-      const generatePromise = ai.models.generateContent({
-        model: GEMINI_MODEL,
-        contents: prompt,
+      const geminiResult = await callGemini({
+        prompt,
       });
 
-      const timeoutPromise = new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error('AI request timeout')), 20000)
-      );
+      const generatedText = geminiResult.text || getFallbackMessage();
+      const newCount = currentDailyUsage + 1;
 
-      const response = await Promise.race([generatePromise, timeoutPromise]);
-      const generatedText = response.text?.trim() || getFallbackMessage();
-
-      // Successfully generated with Gemini — Increment usage in Firestore transaction
-      await firestore.runTransaction(async (transaction) => {
-        const userDoc = await transaction.get(userRef);
-        const data = userDoc.data() || {};
-        const aiUsage = data.aiUsage || {};
-
-        const newCount = aiUsage.date === todayStr ? (aiUsage.count || 0) + 1 : 1;
-
-        transaction.set(
-          userRef,
+      // Best-effort Firestore write
+      try {
+        await userRef.set(
           {
             aiUsage: {
               date: todayStr,
@@ -765,30 +908,43 @@ Rules:
           },
           { merge: true }
         );
-      });
+      } catch (fsWriteErr: any) {
+        console.warn('[AI Quota Write] Firestore admin write failed (best-effort):', fsWriteErr?.message || fsWriteErr);
+      }
 
-      res.json({
+      // In-memory daily tracker update
+      aiInMemoryDailyMap.set(uid, { date: todayStr, count: newCount });
+
+      return res.json({
         text: generatedText,
         isFallback: false,
-        remainingGenerations: DAILY_AI_LIMIT - (currentDailyUsage + 1),
+        remainingGenerations: Math.max(0, DAILY_AI_LIMIT - newCount),
       });
     } catch (geminiError: any) {
-      console.warn('Notice: Gemini call failed or timed out:', geminiError?.message);
-      // DO NOT increment usage on fallback!
+      console.warn('Notice: Gemini call failed:', geminiError?.message);
+
+      const errCode = geminiError.code || 'AI_UNAVAILABLE';
+      let hinglishNotice = 'AI abhi available nahi — template use hua.';
+      if (errCode === 'AI_KEY_MISSING') {
+        hinglishNotice = 'AI abhi available nahi — template use hua (Gemini key missing on server).';
+      } else if (errCode === 'AI_QUOTA') {
+        hinglishNotice = 'AI abhi available nahi — template use hua (Gemini quota limit exceeded).';
+      } else if (errCode === 'AI_TIMEOUT') {
+        hinglishNotice = 'AI abhi available nahi — template use hua (Request timeout after 20s).';
+      } else if (errCode === 'AI_UNAVAILABLE') {
+        hinglishNotice = 'AI abhi available nahi — template use hua (Gemini service unavailable).';
+      }
+
       return res.json({
         text: getFallbackMessage(),
         isFallback: true,
-        reason: 'Gemini service unavailable. Template fallback served.',
-        remainingGenerations: DAILY_AI_LIMIT - currentDailyUsage,
+        errorCode: errCode,
+        reason: geminiError.message || 'Gemini service call failed.',
+        hinglishNotice,
+        remainingGenerations: Math.max(0, DAILY_AI_LIMIT - currentDailyUsage),
       });
     }
   } catch (err: any) {
-    if (err.message === 'DAILY_AI_LIMIT_EXCEEDED') {
-      return res.status(403).json({
-        error: `Daily AI generation limit reached (${DAILY_AI_LIMIT}/day). Please try again tomorrow.`,
-        limitExceeded: true,
-      });
-    }
     next(err);
   }
 });

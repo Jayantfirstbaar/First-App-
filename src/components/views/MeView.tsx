@@ -34,6 +34,7 @@ import {
 } from 'lucide-react';
 import { doc, setDoc } from 'firebase/firestore';
 import { db } from '../../services/firebase';
+import { AIStatusRow } from '../AIStatusRow';
 
 interface MeViewProps {
   user: UserProfile | null;
@@ -496,7 +497,12 @@ export const MeView: React.FC<MeViewProps> = ({
           </div>
         </div>
 
-        {/* 4. Privacy, Terms & Support Action Links */}
+        {/* 4. AI Engine Status */}
+        <div className="pt-2 border-t border-[#F2F4F2] dark:border-[#26312E]">
+          <AIStatusRow />
+        </div>
+
+        {/* 5. Privacy, Terms & Support Action Links */}
         <div className="pt-2 border-t border-[#F2F4F2] dark:border-[#26312E] space-y-1">
           <button
             onClick={() => setShowPrivacyModal(true)}
