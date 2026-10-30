@@ -6,6 +6,8 @@ interface AIHealthState {
   geminiKeyPresent: boolean;
   firestoreAdminOk: boolean;
   model: string;
+  modelOk: boolean;
+  modelError?: string | null;
   status: 'healthy' | 'degraded' | 'error';
   reason: string;
 }
@@ -51,11 +53,20 @@ export const AIStatusRow: React.FC<{ compact?: boolean }> = ({ compact = false }
       );
     }
 
-    if (!health.geminiKeyPresent || health.status === 'error') {
+    if (!health.geminiKeyPresent) {
       return (
         <div className="flex items-center space-x-1.5 text-xs font-bold text-[#C83C4B]">
           <XCircle className="w-3.5 h-3.5" />
           <span>Gemini Key Missing</span>
+        </div>
+      );
+    }
+
+    if (health.modelOk === false || health.status === 'error') {
+      return (
+        <div className="flex items-center space-x-1.5 text-xs font-bold text-[#C83C4B]">
+          <XCircle className="w-3.5 h-3.5" />
+          <span>{health.modelError ? health.modelError.split('(')[0].trim() : 'Model Error'}</span>
         </div>
       );
     }
@@ -83,10 +94,13 @@ export const AIStatusRow: React.FC<{ compact?: boolean }> = ({ compact = false }
     if (!health.geminiKeyPresent) {
       return 'Gemini key missing on server. AI message generator will serve instant template fallbacks.';
     }
+    if (health.modelOk === false) {
+      return health.modelError || `Model '${health.model}' failed validation. Please copy your active model name from the AI Studio model list into GEMINI_MODEL.`;
+    }
     if (!health.firestoreAdminOk) {
       return 'Admin SDK access to named database restricted. In-memory rate limiting and quota fallbacks are active.';
     }
-    return `Gemini API connected (${health.model}) with best-effort quota tracking and in-memory rate limits.`;
+    return `Gemini API connected (${health.model}) with verified model responsiveness and in-memory rate limits.`;
   };
 
   if (compact) {

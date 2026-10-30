@@ -35,9 +35,18 @@ app.use(helmet({
 }));
 app.use(express.json({ limit: '100kb' }));
 
-// Check the model name in AI Studio; default is current free-tier flash model: gemini-3.8-flash
+// Model configuration: copy your active model name from the Google AI Studio model list into the GEMINI_MODEL env var
+// Default is set to current free-tier flash model (e.g. gemini-3.8-flash)
 const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-3.8-flash';
 const DAILY_AI_LIMIT = 30;
+
+// 5-minute in-memory cache for real Gemini model probe in /api/ai/health
+let modelHealthCache: {
+  timestamp: number;
+  model: string;
+  modelOk: boolean;
+  modelError: string | null;
+} | null = null;
 
 // In-memory rate limiting for AI endpoint (max 10 requests per minute per UID)
 const aiRateLimitMap = new Map<string, { count: number; resetAt: number }>();
@@ -78,23 +87,26 @@ function getTodayInTimezone(tz: string = 'Asia/Kolkata'): string {
   }
 }
 
-interface GeminiCallParams {
+export interface GeminiCallParams {
   prompt: string;
   systemInstruction?: string;
+  model?: string;
 }
 
-interface GeminiCallResult {
+export interface GeminiCallResult {
   text: string;
 }
 
 // Shared Gemini helper used by all AI routes with 20s timeout, retry on 429/503, and structured error logging
-async function callGemini(params: GeminiCallParams): Promise<GeminiCallResult> {
+export async function callGemini(params: GeminiCallParams): Promise<GeminiCallResult> {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey || apiKey.trim().length === 0) {
     const err: any = new Error('Gemini API key is not configured on the server.');
     err.code = 'AI_KEY_MISSING';
     throw err;
   }
+
+  const modelToUse = params.model || GEMINI_MODEL;
 
   const ai = new GoogleGenAI({
     apiKey,
@@ -112,7 +124,7 @@ async function callGemini(params: GeminiCallParams): Promise<GeminiCallResult> {
       const timeoutId = setTimeout(() => controller.abort(), 20000); // 20s timeout
 
       const generatePromise = ai.models.generateContent({
-        model: GEMINI_MODEL,
+        model: modelToUse,
         contents: params.prompt,
         config: params.systemInstruction
           ? { systemInstruction: params.systemInstruction }
@@ -141,7 +153,7 @@ async function callGemini(params: GeminiCallParams): Promise<GeminiCallResult> {
       const isTransient = status === 429 || status === 503;
 
       console.error(`[Gemini API Call] Attempt ${attempt}/${maxAttempts} failed:`, {
-        model: GEMINI_MODEL,
+        model: modelToUse,
         status,
         code: isTimeout ? 'AI_TIMEOUT' : status === 429 ? 'AI_QUOTA' : err.code || 'AI_UNAVAILABLE',
         message: err.message,
@@ -725,12 +737,76 @@ app.get('/api/ai/health', async (req: Request, res: Response) => {
     console.warn('[AI Health Check] Firestore admin database probe warning:', firestoreDetails);
   }
 
+  // Model validation with 5-minute cache
+  let modelOk = false;
+  let modelError: string | null = null;
+
+  if (geminiKeyPresent) {
+    const now = Date.now();
+    const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+
+    if (
+      modelHealthCache &&
+      now - modelHealthCache.timestamp < CACHE_TTL_MS &&
+      modelHealthCache.model === GEMINI_MODEL
+    ) {
+      modelOk = modelHealthCache.modelOk;
+      modelError = modelHealthCache.modelError;
+    } else {
+      try {
+        const ai = new GoogleGenAI({
+          apiKey: process.env.GEMINI_API_KEY,
+          httpOptions: {
+            headers: {
+              'User-Agent': 'aistudio-build',
+            },
+          },
+        });
+
+        // Real tiny Gemini probe (prompt "ok", max 5 output tokens)
+        await ai.models.generateContent({
+          model: GEMINI_MODEL,
+          contents: 'ok',
+          config: {
+            maxOutputTokens: 5,
+          },
+        });
+
+        modelOk = true;
+        modelError = null;
+      } catch (mErr: any) {
+        modelOk = false;
+        let errMsg = mErr?.message || String(mErr);
+        if (mErr?.status === 404 || errMsg.includes('404') || errMsg.includes('NOT_FOUND') || errMsg.toLowerCase().includes('not found')) {
+          errMsg = `Model not found: ${GEMINI_MODEL} (Check AI Studio model list and update GEMINI_MODEL)`;
+        } else if (mErr?.status === 429 || errMsg.includes('429') || errMsg.includes('RESOURCE_EXHAUSTED')) {
+          errMsg = `Quota limit reached on model: ${GEMINI_MODEL}`;
+        }
+        modelError = errMsg;
+        console.warn(`[AI Health Check] Model probe failed for '${GEMINI_MODEL}':`, errMsg);
+      }
+
+      modelHealthCache = {
+        timestamp: now,
+        model: GEMINI_MODEL,
+        modelOk,
+        modelError,
+      };
+    }
+  } else {
+    modelOk = false;
+    modelError = 'Gemini key missing on server (GEMINI_API_KEY)';
+  }
+
   let status: 'healthy' | 'degraded' | 'error' = 'healthy';
   let reason = 'All AI services operational';
 
   if (!geminiKeyPresent) {
     status = 'error';
     reason = 'Gemini key missing on server (GEMINI_API_KEY)';
+  } else if (!modelOk) {
+    status = 'error';
+    reason = modelError || `Model '${GEMINI_MODEL}' is unresponsive`;
   } else if (!firestoreAdminOk) {
     status = 'degraded';
     reason = 'Firestore Admin SDK access restricted (in-memory rate limit & quota fallback active)';
@@ -740,6 +816,8 @@ app.get('/api/ai/health', async (req: Request, res: Response) => {
     geminiKeyPresent,
     firestoreAdminOk,
     model: GEMINI_MODEL,
+    modelOk,
+    modelError,
     status,
     reason,
   });

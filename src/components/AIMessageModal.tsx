@@ -215,7 +215,7 @@ export const AIMessageModal: React.FC<AIMessageModalProps> = ({
       const code = err.errorCode || '';
       let friendlyHinglish = err.message || 'Message generate nahi ho paaya.';
 
-      if (code === 'AI_LIMIT_DAILY' || err.message?.includes('DAILY_AI_LIMIT') || err.message?.includes('30')) {
+      if (code === 'AI_LIMIT_DAILY') {
         setQuotaExceeded(true);
         friendlyHinglish = 'Aaj ka daily AI limit (30 messages) pura ho gaya — kal reset hoga.';
       } else if (code === 'AI_QUOTA') {
@@ -229,7 +229,7 @@ export const AIMessageModal: React.FC<AIMessageModalProps> = ({
       }
 
       setError(friendlyHinglish);
-      setErrorCode(code);
+      setErrorCode(code || null);
     } finally {
       setLoading(false);
     }

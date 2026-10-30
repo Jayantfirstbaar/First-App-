@@ -480,6 +480,8 @@ export const api = {
     geminiKeyPresent: boolean;
     firestoreAdminOk: boolean;
     model: string;
+    modelOk: boolean;
+    modelError?: string | null;
     status: 'healthy' | 'degraded' | 'error';
     reason: string;
   }> {
@@ -534,7 +536,7 @@ export const api = {
         errText = errData.hinglishNotice || errData.error || errText;
       } catch {}
       const error: any = new Error(errText);
-      if (errData?.errorCode) error.errorCode = errData.errorCode;
+      error.errorCode = errData?.errorCode || (res.status === 429 ? 'AI_QUOTA' : res.status === 403 ? 'AI_LIMIT_DAILY' : 'AI_UNAVAILABLE');
       throw error;
     }
     return res.json();

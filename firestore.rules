@@ -6,8 +6,12 @@ service cloud.firestore {
       return request.auth != null;
     }
 
+    function isEmailVerified() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
     function isOwner(userId) {
-      return isSignedIn() && request.auth.uid == userId;
+      return isEmailVerified() && request.auth.uid == userId;
     }
 
     function isValidStage(stage) {
@@ -19,7 +23,7 @@ service cloud.firestore {
     }
 
     function isValidPhone(phone) {
-      return phone is string && phone.size() >= 0 && phone.size() <= 20;
+      return phone is string && (phone.size() == 0 || (phone.size() >= 10 && phone.size() <= 15));
     }
 
     // Default deny catch-all
