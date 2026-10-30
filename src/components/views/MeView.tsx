@@ -872,6 +872,7 @@ export const MeView: React.FC<MeViewProps> = ({
               <p><strong>1. Strict Data Isolation:</strong> Your customer leads, phone numbers, and quotation figures are private and isolated to your authenticated account ID ({user.id}). No other user can access your studio records.</p>
               <p><strong>2. No Web Scraping or Snooping:</strong> QuoteBack AI never scrapes WhatsApp chats, reads background device contacts, or accesses private messaging data.</p>
               <p><strong>3. Zero-Cost Infrastructure:</strong> All server operations are powered by standard free cloud hosting and Google Cloud Firestore infrastructure.</p>
+              <p><strong>4. AI Assistant & Gemini Privacy:</strong> In "Ask QuoteBack", your business context summary and lead stages are processed by Google Gemini strictly to answer your sales and follow-up questions in real time. Customer phone numbers, email addresses, and private contact info are NEVER sent to Gemini. Your conversation data is not used for AI model training.</p>
             </div>
           </div>
         </div>

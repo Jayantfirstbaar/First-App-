@@ -19,6 +19,7 @@ import { AuthView } from './components/AuthView';
 import { useAuth } from './contexts/AuthContext';
 import { MeView } from './components/views/MeView';
 import { ProfileCompletionModal } from './components/ProfileCompletionModal';
+import { AskQuoteBackModal } from './components/AskQuoteBackModal';
 
 export default function App() {
   const { user: firebaseUser, loading: authLoading, getIdToken } = useAuth();
@@ -36,6 +37,7 @@ export default function App() {
   const [selectedLeadForFollowUpAction, setSelectedLeadForFollowUpAction] = useState<Lead | null>(null);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [showOnboardingModal, setShowOnboardingModal] = useState(false);
+  const [showAskAIModal, setShowAskAIModal] = useState(false);
 
   // Notification Banner
   const [notificationBanner, setNotificationBanner] = useState<{ title: string; message: string; isOverdue: boolean } | null>(null);
@@ -194,6 +196,7 @@ export default function App() {
         onToggleFrame={() => setIsAndroidFrame(!isAndroidFrame)}
         onOpenSettings={() => setShowSettingsModal(true)}
         onOpenMeTab={() => setActiveTab('me')}
+        onOpenAskAI={() => setShowAskAIModal(true)}
         dueTodayCount={dueTodayCount}
         overdueCount={overdueCount}
       />
@@ -234,6 +237,7 @@ export default function App() {
               setEditingLead(null);
               setShowAddLeadModal(true);
             }}
+            onOpenAskAI={() => setShowAskAIModal(true)}
             overdueCount={overdueCount}
             dueTodayCount={dueTodayCount}
             isFloating={!isAndroidFrame}
@@ -380,6 +384,16 @@ export default function App() {
             setShowOnboardingModal(false);
             loadData();
           }}
+        />
+      )}
+
+      {/* Ask QuoteBack AI Assistant Sheet */}
+      {showAskAIModal && (
+        <AskQuoteBackModal
+          user={user}
+          leads={leads}
+          onClose={() => setShowAskAIModal(false)}
+          onLeadUpdated={loadData}
         />
       )}
     </div>

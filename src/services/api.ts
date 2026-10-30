@@ -11,7 +11,7 @@ import {
   where,
 } from 'firebase/firestore';
 import { db, auth } from './firebase';
-import { Lead, Quotation, Activity, UserProfile, MessagePurpose, MessageTone, MessageLanguage } from '../types';
+import { Lead, Quotation, Activity, UserProfile, MessagePurpose, MessageTone, MessageLanguage, ChatContextSnapshot, ProposedAction } from '../types';
 import { filterLeadsForExport, generateLeadsCsv } from '../utils/calculations';
 
 enum OperationType {
@@ -540,6 +540,126 @@ export const api = {
       throw error;
     }
     return res.json();
+  },
+
+  /**
+   * Sends a chat prompt to Ask QuoteBack AI (/api/ai/chat)
+   * Streams SSE chunks with automatic fallback to non-streaming if needed.
+   */
+  async sendChatMessage(params: {
+    message: string;
+    context: ChatContextSnapshot;
+    history?: { role: 'user' | 'assistant'; text: string }[];
+    onChunk?: (chunk: string) => void;
+    onActions?: (actions: ProposedAction[]) => void;
+    signal?: AbortSignal;
+  }): Promise<{ text: string; actions: ProposedAction[]; errorCode?: string; hinglishNotice?: string }> {
+    const headers = await this.getHeaders();
+    headers['Accept'] = 'text/event-stream, application/json';
+
+    let res: Response;
+    try {
+      res = await fetch('/api/ai/chat', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          message: params.message,
+          context: params.context,
+          history: params.history || [],
+          stream: true,
+        }),
+        signal: params.signal,
+      });
+    } catch (fetchErr: any) {
+      if (fetchErr.name === 'AbortError') {
+        throw fetchErr;
+      }
+      const err: any = new Error(fetchErr.message || 'Network connection failed');
+      err.errorCode = 'AI_UNAVAILABLE';
+      err.hinglishNotice = 'Server se connection nahi ho paya — internet check karein.';
+      throw err;
+    }
+
+    if (!res.ok) {
+      let errData: any = {};
+      try {
+        errData = await res.json();
+      } catch {}
+      const error: any = new Error(errData.error || `AI Request Failed (${res.status})`);
+      error.errorCode = errData.errorCode || (res.status === 429 ? 'AI_QUOTA' : res.status === 403 ? 'AI_LIMIT_DAILY' : res.status === 503 ? 'AI_KEY_MISSING' : 'AI_UNAVAILABLE');
+      error.hinglishNotice = errData.hinglishNotice;
+      throw error;
+    }
+
+    // Check if response is Server-Sent Events (SSE)
+    const contentType = res.headers.get('content-type') || '';
+    if (contentType.includes('text/event-stream') && res.body) {
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+      let accumulatedText = '';
+      let finalActions: ProposedAction[] = [];
+
+      try {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split('\n');
+          buffer = lines.pop() || '';
+
+          for (const line of lines) {
+            const trimmed = line.trim();
+            if (!trimmed.startsWith('data:')) continue;
+
+            const payloadStr = trimmed.substring(5).trim();
+            if (payloadStr === '[DONE]') {
+              continue;
+            }
+
+            try {
+              const data = JSON.parse(payloadStr);
+              if (data.chunk) {
+                accumulatedText += data.chunk;
+                if (params.onChunk) {
+                  params.onChunk(data.chunk);
+                }
+              }
+              if (data.actions && Array.isArray(data.actions)) {
+                finalActions = data.actions;
+                if (params.onActions) {
+                  params.onActions(data.actions);
+                }
+              }
+              if (data.error) {
+                const streamErr: any = new Error(data.error);
+                streamErr.errorCode = data.errorCode || 'AI_UNAVAILABLE';
+                throw streamErr;
+              }
+            } catch (pErr) {
+              // Ignore partial JSON parse errors
+            }
+          }
+        }
+      } catch (streamErr: any) {
+        if (streamErr.name === 'AbortError') {
+          return { text: accumulatedText, actions: finalActions };
+        }
+        throw streamErr;
+      }
+
+      return { text: accumulatedText, actions: finalActions };
+    }
+
+    // Non-streaming JSON fallback
+    const jsonResult = await res.json();
+    return {
+      text: jsonResult.text || '',
+      actions: jsonResult.actions || [],
+      errorCode: jsonResult.errorCode,
+      hinglishNotice: jsonResult.hinglishNotice,
+    };
   },
 
   async downloadCsv(options?: { status?: string; timeframe?: string; startDate?: string; endDate?: string }): Promise<void> {

@@ -1,6 +1,6 @@
 import React from 'react';
 import { UserProfile } from '../types';
-import { Smartphone, Monitor, Bell, Settings as SettingsIcon } from 'lucide-react';
+import { Smartphone, Monitor, Bell, Settings as SettingsIcon, Sparkles } from 'lucide-react';
 
 interface TopAppBarProps {
   user: UserProfile | null;
@@ -8,6 +8,7 @@ interface TopAppBarProps {
   onToggleFrame: () => void;
   onOpenSettings: () => void;
   onOpenMeTab?: () => void;
+  onOpenAskAI?: () => void;
   dueTodayCount: number;
   overdueCount: number;
 }
@@ -18,6 +19,7 @@ export const TopAppBar: React.FC<TopAppBarProps> = ({
   onToggleFrame,
   onOpenSettings,
   onOpenMeTab,
+  onOpenAskAI,
   dueTodayCount,
   overdueCount,
 }) => {
@@ -64,6 +66,17 @@ export const TopAppBar: React.FC<TopAppBarProps> = ({
 
         {/* Action Controls */}
         <div className="flex items-center space-x-1 sm:space-x-1.5">
+          {/* Ask QuoteBack AI Trigger */}
+          <button
+            onClick={onOpenAskAI}
+            title="Ask QuoteBack AI Assistant"
+            aria-label="Ask QuoteBack AI"
+            className="flex items-center space-x-1.5 px-2.5 py-1.5 rounded-xl bg-gradient-to-tr from-[#087F68] to-[#12A588] text-white shadow-xs hover:shadow-md hover:brightness-105 transition cursor-pointer"
+          >
+            <Sparkles className="w-3.5 h-3.5 animate-pulse" />
+            <span className="hidden sm:inline text-[11px] font-bold">Ask AI</span>
+          </button>
+
           {/* Device Frame View Toggle */}
           <button
             onClick={onToggleFrame}
