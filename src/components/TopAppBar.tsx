@@ -1,14 +1,13 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { UserProfile } from '../types';
-import { Smartphone, Monitor, Bell, Crown, Settings as SettingsIcon, Users, CheckCircle2 } from 'lucide-react';
+import { Smartphone, Monitor, Bell, Settings as SettingsIcon } from 'lucide-react';
 
 interface TopAppBarProps {
   user: UserProfile | null;
   isAndroidFrame: boolean;
   onToggleFrame: () => void;
   onOpenSettings: () => void;
-  onSwitchUser: (userId: string) => void;
-  availableAccounts: Array<{ id: string; name: string; businessName: string; email: string }>;
+  onOpenMeTab?: () => void;
   dueTodayCount: number;
   overdueCount: number;
 }
@@ -18,13 +17,10 @@ export const TopAppBar: React.FC<TopAppBarProps> = ({
   isAndroidFrame,
   onToggleFrame,
   onOpenSettings,
-  onSwitchUser,
-  availableAccounts,
+  onOpenMeTab,
   dueTodayCount,
   overdueCount,
 }) => {
-  const [showAccountDropdown, setShowAccountDropdown] = useState(false);
-
   const requestNotificationPermission = async () => {
     if ('Notification' in window) {
       const perm = await Notification.requestPermission();
@@ -35,6 +31,15 @@ export const TopAppBar: React.FC<TopAppBarProps> = ({
         });
       }
     }
+  };
+
+  const getInitials = (name: string) => {
+    return (name || 'U')
+      .split(' ')
+      .map(n => n[0])
+      .join('')
+      .substring(0, 2)
+      .toUpperCase();
   };
 
   return (
@@ -59,51 +64,12 @@ export const TopAppBar: React.FC<TopAppBarProps> = ({
 
         {/* Action Controls */}
         <div className="flex items-center space-x-1 sm:space-x-1.5">
-          {/* Tenant Switcher (Flow H multi-tenant security verification) */}
-          <div className="relative">
-            <button
-              onClick={() => setShowAccountDropdown(!showAccountDropdown)}
-              title="Switch user account (Test data isolation)"
-              aria-label="Switch account"
-              className="p-1.5 sm:px-2.5 sm:py-1.5 rounded-xl bg-[#F4F6F4] hover:bg-[#E8EBE8] dark:bg-[#222C28] dark:hover:bg-[#2B3733] text-[#18211F] dark:text-[#D5DDD8] transition flex items-center space-x-1.5 text-xs font-medium"
-            >
-              <Users className="w-3.5 h-3.5 text-[#087F68]" />
-              <span className="hidden sm:inline">Switch Tenant</span>
-            </button>
-
-            {showAccountDropdown && (
-              <div className="absolute right-0 mt-2 w-64 bg-white dark:bg-[#1C2522] border border-[#E6EAE7] dark:border-[#2D3935] rounded-2xl shadow-xl py-1.5 z-50 text-xs">
-                <div className="px-3 py-1.5 border-b border-[#E6EAE7] dark:border-[#2D3935] text-[#6B7470] dark:text-[#8D9792] font-semibold uppercase tracking-wider text-[10px]">
-                  Multi-Tenant Accounts (Isolated DB)
-                </div>
-                {availableAccounts.map(acc => (
-                  <button
-                    key={acc.id}
-                    onClick={() => {
-                      onSwitchUser(acc.id);
-                      setShowAccountDropdown(false);
-                    }}
-                    className={`w-full text-left px-3 py-2 flex items-center justify-between hover:bg-[#F4F6F4] dark:hover:bg-[#24302C] transition ${
-                      user?.id === acc.id ? 'bg-[#E8F5EF] dark:bg-[#087F68]/20 text-[#087F68] font-semibold' : 'text-[#18211F] dark:text-[#D5DDD8]'
-                    }`}
-                  >
-                    <div>
-                      <div className="font-semibold text-xs">{acc.businessName}</div>
-                      <div className="text-[11px] text-[#6B7470] dark:text-[#8D9792]">{acc.name}</div>
-                    </div>
-                    {user?.id === acc.id && <CheckCircle2 className="w-3.5 h-3.5 text-[#087F68]" />}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-
           {/* Device Frame View Toggle */}
           <button
             onClick={onToggleFrame}
             title={isAndroidFrame ? 'Switch to Full-Width View' : 'Preview in Android Phone Frame'}
             aria-label="Toggle frame"
-            className="p-1.5 sm:p-2 rounded-xl bg-[#F4F6F4] hover:bg-[#E8EBE8] dark:bg-[#222C28] dark:hover:bg-[#2B3733] text-[#18211F] dark:text-[#D5DDD8] transition"
+            className="p-1.5 sm:p-2 rounded-xl bg-[#F4F6F4] hover:bg-[#E8EBE8] dark:bg-[#222C28] dark:hover:bg-[#2B3733] text-[#18211F] dark:text-[#D5DDD8] transition cursor-pointer"
           >
             {isAndroidFrame ? <Monitor className="w-4 h-4 text-[#D97706]" /> : <Smartphone className="w-4 h-4 text-[#087F68]" />}
           </button>
@@ -113,7 +79,7 @@ export const TopAppBar: React.FC<TopAppBarProps> = ({
             onClick={requestNotificationPermission}
             title={`${dueTodayCount} due today, ${overdueCount} overdue`}
             aria-label="Notifications"
-            className="p-1.5 sm:p-2 rounded-xl bg-[#F4F6F4] hover:bg-[#E8EBE8] dark:bg-[#222C28] dark:hover:bg-[#2B3733] text-[#18211F] dark:text-[#D5DDD8] transition relative"
+            className="p-1.5 sm:p-2 rounded-xl bg-[#F4F6F4] hover:bg-[#E8EBE8] dark:bg-[#222C28] dark:hover:bg-[#2B3733] text-[#18211F] dark:text-[#D5DDD8] transition relative cursor-pointer"
           >
             <Bell className="w-4 h-4" />
             {(overdueCount > 0 || dueTodayCount > 0) && (
@@ -130,10 +96,32 @@ export const TopAppBar: React.FC<TopAppBarProps> = ({
             onClick={onOpenSettings}
             title="Business Settings & Profile"
             aria-label="Settings"
-            className="p-1.5 sm:p-2 rounded-xl bg-[#F4F6F4] hover:bg-[#E8EBE8] dark:bg-[#222C28] dark:hover:bg-[#2B3733] text-[#18211F] dark:text-[#D5DDD8] transition"
+            className="p-1.5 sm:p-2 rounded-xl bg-[#F4F6F4] hover:bg-[#E8EBE8] dark:bg-[#222C28] dark:hover:bg-[#2B3733] text-[#18211F] dark:text-[#D5DDD8] transition cursor-pointer"
           >
             <SettingsIcon className="w-4 h-4" />
           </button>
+
+          {/* User Profile Avatar / Me Tab Quick Launcher */}
+          {user && (
+            <button
+              onClick={onOpenMeTab || onOpenSettings}
+              title="My Profile & Preferences"
+              aria-label="User profile"
+              className="ml-1 p-0.5 rounded-full ring-2 ring-[#087F68]/30 hover:ring-[#087F68] transition cursor-pointer shrink-0"
+            >
+              {user.photoURL ? (
+                <img
+                  src={user.photoURL}
+                  alt={user.name}
+                  className="w-7 h-7 rounded-full object-cover"
+                />
+              ) : (
+                <div className="w-7 h-7 rounded-full bg-[#E8F5EF] dark:bg-[#087F68]/20 text-[#087F68] dark:text-[#38D6AB] font-bold text-[11px] flex items-center justify-center">
+                  {getInitials(user.name)}
+                </div>
+              )}
+            </button>
+          )}
         </div>
       </div>
     </header>

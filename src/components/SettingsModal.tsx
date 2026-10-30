@@ -4,15 +4,7 @@ import { api } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 import {
   X,
-  Building,
-  User,
-  Globe,
-  Clock,
-  Bell,
   Download,
-  Trash2,
-  Database,
-  FileText,
   LogOut,
   ShieldCheck,
   CheckCircle2,
@@ -29,14 +21,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   user,
   onClose,
   onProfileUpdated,
-  onLeadsReloadNeeded,
 }) => {
   const { logout } = useAuth();
   const [businessName, setBusinessName] = useState(user?.businessName || '');
   const [name, setName] = useState(user?.name || '');
   const [businessType, setBusinessType] = useState(user?.businessType || 'Interior Design');
   const [languagePreference, setLanguagePreference] = useState<'en' | 'hi' | 'hinglish'>(user?.languagePreference || 'hinglish');
-  const [timeZone, setTimeZone] = useState(user?.timeZone || 'Asia/Kolkata');
+  const [timeZone] = useState(user?.timeZone || 'Asia/Kolkata');
   const [reminderTime, setReminderTime] = useState(user?.reminderTime || '10:00');
 
   const [saving, setSaving] = useState(false);
@@ -65,32 +56,12 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     }
   };
 
-  const handleSeedSampleData = async () => {
-    setSaving(true);
+  const handleDownloadCsv = async () => {
     try {
-      await api.seedSampleLeads();
-      setStatusMessage('Sample leads and quotations loaded!');
-      onLeadsReloadNeeded();
+      await api.downloadCsv();
+      setStatusMessage('CSV export downloaded successfully!');
     } catch (err: any) {
-      setStatusMessage(err.message || 'Failed to seed sample data');
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handleClearAllData = async () => {
-    if (!window.confirm('Are you sure you want to clear all your leads and quotations? This cannot be undone.')) {
-      return;
-    }
-    setSaving(true);
-    try {
-      await api.clearLeads();
-      setStatusMessage('All leads cleared. Database is now empty for fresh entry.');
-      onLeadsReloadNeeded();
-    } catch (err: any) {
-      setStatusMessage(err.message || 'Failed to clear leads');
-    } finally {
-      setSaving(false);
+      setStatusMessage(err.message || 'Failed to download CSV export');
     }
   };
 
@@ -99,7 +70,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       const perm = await Notification.requestPermission();
       if (perm === 'granted') {
         new Notification('QuoteBack AI Test Reminder', {
-          body: 'Namaste! Follow-up reminder for Rajiv Mehra quotation (₹12,00,000) is scheduled for today.',
+          body: 'Namaste! Scheduled client quotation follow-ups reminder alert active.',
         });
         setStatusMessage('Browser notification triggered successfully!');
       } else {
@@ -118,7 +89,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           <h3 className="font-bold text-[#18211F] dark:text-white text-sm sm:text-base">
             Business Settings & Preferences
           </h3>
-          <button onClick={onClose} className="p-1 rounded-full text-[#6B7470] hover:text-[#18211F]">
+          <button onClick={onClose} className="p-1 rounded-full text-[#6B7470] hover:text-[#18211F] cursor-pointer">
             <X className="w-5 h-5" />
           </button>
         </div>
@@ -127,7 +98,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         <div className="flex border-b border-[#E6EAE7] dark:border-[#26312E] bg-[#F7F8F6] dark:bg-[#202A27] px-4 pt-2 text-xs">
           <button
             onClick={() => setActiveTab('profile')}
-            className={`pb-2 px-3 font-semibold border-b-2 transition ${
+            className={`pb-2 px-3 font-semibold border-b-2 transition cursor-pointer ${
               activeTab === 'profile'
                 ? 'border-[#087F68] text-[#087F68] font-bold'
                 : 'border-transparent text-[#6B7470] hover:text-[#18211F]'
@@ -137,17 +108,17 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           </button>
           <button
             onClick={() => setActiveTab('data')}
-            className={`pb-2 px-3 font-semibold border-b-2 transition ${
+            className={`pb-2 px-3 font-semibold border-b-2 transition cursor-pointer ${
               activeTab === 'data'
                 ? 'border-[#087F68] text-[#087F68] font-bold'
                 : 'border-transparent text-[#6B7470] hover:text-[#18211F]'
             }`}
           >
-            Data & Sample Leads
+            Data & Export
           </button>
           <button
             onClick={() => setActiveTab('privacy')}
-            className={`pb-2 px-3 font-semibold border-b-2 transition ${
+            className={`pb-2 px-3 font-semibold border-b-2 transition cursor-pointer ${
               activeTab === 'privacy'
                 ? 'border-[#087F68] text-[#087F68] font-bold'
                 : 'border-transparent text-[#6B7470] hover:text-[#18211F]'
@@ -229,7 +200,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       key={opt.id}
                       type="button"
                       onClick={() => setLanguagePreference(opt.id as any)}
-                      className={`p-2 rounded-xl text-center border text-xs font-semibold transition ${
+                      className={`p-2 rounded-xl text-center border text-xs font-semibold transition cursor-pointer ${
                         languagePreference === opt.id
                           ? 'border-[#087F68] bg-[#E8F5EF] text-[#087F68]'
                           : 'border-[#E6EAE7] dark:border-[#26312E] text-[#6B7470]'
@@ -280,7 +251,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 <button
                   type="button"
                   onClick={handleTestNotification}
-                  className="px-2.5 py-1.5 rounded-lg bg-[#087F68] hover:bg-[#066956] text-white font-semibold text-[11px]"
+                  className="px-2.5 py-1.5 rounded-lg bg-[#087F68] hover:bg-[#066956] text-white font-semibold text-[11px] cursor-pointer"
                 >
                   Send Test
                 </button>
@@ -290,7 +261,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 <button
                   type="submit"
                   disabled={saving}
-                  className="px-4 py-2 rounded-xl bg-[#087F68] hover:bg-[#066956] text-white font-bold text-xs shadow-xs"
+                  className="px-4 py-2 rounded-xl bg-[#087F68] hover:bg-[#066956] text-white font-bold text-xs shadow-xs cursor-pointer"
                 >
                   {saving ? 'Saving...' : 'Save Changes'}
                 </button>
@@ -307,56 +278,15 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     Export Leads to CSV
                   </h4>
                   <p className="text-[10px] text-[#6B7470] mt-0.5">
-                    Download all your enquiries and quotations.
+                    Download all your enquiries and quotations securely.
                   </p>
                 </div>
-                <a
-                  href={api.getExportCsvUrl()}
-                  download
-                  className="px-3 py-1.5 rounded-xl bg-[#087F68] hover:bg-[#066956] text-white text-xs font-semibold flex items-center space-x-1 shadow-xs"
+                <button
+                  onClick={handleDownloadCsv}
+                  className="px-3 py-1.5 rounded-xl bg-[#087F68] hover:bg-[#066956] text-white text-xs font-semibold flex items-center space-x-1 shadow-xs cursor-pointer"
                 >
                   <Download className="w-3.5 h-3.5" />
-                  <span>Export</span>
-                </a>
-              </div>
-
-              {/* Sample Data Loader */}
-              <div className="p-3 bg-[#E8F5EF] dark:bg-[#087F68]/15 border border-[#CBE7DC] dark:border-[#087F68]/30 rounded-2xl flex items-center justify-between">
-                <div>
-                  <h4 className="font-bold text-[#087F68] text-xs">
-                    Load Demo Sample Leads
-                  </h4>
-                  <p className="text-[10px] text-[#6B7470] mt-0.5">
-                    Load 4 sample Indian interior design enquiries.
-                  </p>
-                </div>
-                <button
-                  onClick={handleSeedSampleData}
-                  disabled={saving}
-                  className="px-3 py-1.5 rounded-xl bg-[#087F68] hover:bg-[#066956] text-white text-xs font-semibold flex items-center space-x-1 shadow-xs"
-                >
-                  <Database className="w-3.5 h-3.5" />
-                  <span>Load Demo</span>
-                </button>
-              </div>
-
-              {/* Clear All Leads */}
-              <div className="p-3 bg-[#FDF2F3] dark:bg-[#C83C4B]/15 border border-[#F7D2D6] dark:border-[#C83C4B]/30 rounded-2xl flex items-center justify-between">
-                <div>
-                  <h4 className="font-bold text-[#C83C4B] text-xs">
-                    Clear All Enquiries
-                  </h4>
-                  <p className="text-[10px] text-[#6B7470] mt-0.5">
-                    Delete all leads to start with a blank pipeline.
-                  </p>
-                </div>
-                <button
-                  onClick={handleClearAllData}
-                  disabled={saving}
-                  className="px-3 py-1.5 rounded-xl bg-[#C83C4B] hover:bg-[#B33543] text-white text-xs font-semibold flex items-center space-x-1 shadow-xs"
-                >
-                  <Trash2 className="w-3.5 h-3.5" />
-                  <span>Clear All</span>
+                  <span>Export CSV</span>
                 </button>
               </div>
             </div>
@@ -373,7 +303,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   QuoteBack AI stores only customer details entered directly by you. We never scrape Instagram, read private WhatsApp messages, or access device contacts.
                 </p>
                 <p>
-                  Data is strictly isolated per business account.
+                  Data is strictly isolated per authenticated Firebase user account.
                 </p>
               </div>
 
@@ -394,17 +324,16 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           <button
             onClick={async () => {
               await logout();
-              api.clearToken();
               onClose();
             }}
-            className="flex items-center space-x-1.5 px-3.5 py-1.5 rounded-xl border border-[#E6EAE7] dark:border-[#26312E] bg-white dark:bg-[#18211F] text-[#C83C4B] text-xs font-bold shadow-xs hover:bg-red-50 transition"
+            className="flex items-center space-x-1.5 px-3.5 py-1.5 rounded-xl border border-[#E6EAE7] dark:border-[#26312E] bg-white dark:bg-[#18211F] text-[#C83C4B] text-xs font-bold shadow-xs hover:bg-red-50 transition cursor-pointer"
           >
             <LogOut className="w-3.5 h-3.5" />
             <span>Sign Out</span>
           </button>
           <button
             onClick={onClose}
-            className="px-3.5 py-1.5 rounded-xl bg-[#18211F] dark:bg-[#222C28] text-white text-xs font-semibold"
+            className="px-3.5 py-1.5 rounded-xl bg-[#18211F] dark:bg-[#222C28] text-white text-xs font-semibold cursor-pointer"
           >
             Close
           </button>

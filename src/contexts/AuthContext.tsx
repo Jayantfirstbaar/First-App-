@@ -8,15 +8,14 @@ export interface AppUser {
   emailVerified: boolean;
   displayName?: string | null;
   photoURL?: string | null;
-  getIdToken?: (forceRefresh?: boolean) => Promise<string>;
+  getIdToken: (forceRefresh?: boolean) => Promise<string>;
 }
 
 interface AuthContextType {
-  user: AppUser | null;
+  user: User | null;
   loading: boolean;
   authError: string | null;
   getIdToken: () => Promise<string | null>;
-  loginAsDemoUser: (email?: string, name?: string) => void;
   logout: () => Promise<void>;
 }
 
@@ -25,45 +24,27 @@ const AuthContext = createContext<AuthContextType>({
   loading: true,
   authError: null,
   getIdToken: async () => null,
-  loginAsDemoUser: () => {},
   logout: async () => {},
 });
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [user, setUser] = useState<AppUser | null>(null);
+  const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [authError, setAuthError] = useState<string | null>(null);
 
   useEffect(() => {
-    // Check if there is a local demo/preview user session saved
-    const savedDemoUser = localStorage.getItem('quoteback_demo_user');
-    if (savedDemoUser) {
-      try {
-        const parsed = JSON.parse(savedDemoUser);
-        setUser(parsed);
-        setLoading(false);
-      } catch {
-        localStorage.removeItem('quoteback_demo_user');
-      }
-    }
-
     let unsubscribe = () => {};
     try {
       unsubscribe = onAuthStateChanged(
         auth,
         (firebaseUser) => {
-          if (firebaseUser) {
-            setUser(firebaseUser);
-            setAuthError(null);
-            localStorage.removeItem('quoteback_demo_user');
-          } else if (!localStorage.getItem('quoteback_demo_user')) {
-            setUser(null);
-          }
+          setUser(firebaseUser);
+          setAuthError(null);
           setLoading(false);
         },
         (error) => {
           console.warn('Firebase Auth State Observer warning:', error?.message);
-          setAuthError(error?.message || 'Firebase Auth service notification');
+          setAuthError(error?.message || 'Firebase Auth error');
           setLoading(false);
         }
       );
@@ -77,28 +58,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const getIdToken = async () => {
-    if (user && typeof user.getIdToken === 'function') {
+    if (auth.currentUser) {
       try {
-        return await user.getIdToken(true);
+        return await auth.currentUser.getIdToken(true);
       } catch (err: any) {
-        console.warn('getIdToken refresh warning, returning uid:', err?.message);
-        return user.uid;
+        console.warn('getIdToken refresh error:', err?.message);
       }
     }
-    return user?.uid || localStorage.getItem('quoteback_auth_token') || 'user_sharma';
-  };
-
-  const loginAsDemoUser = (email = 'sharma.interiors@example.com', name = 'Rajesh Sharma') => {
-    const demo: AppUser = {
-      uid: 'user_sharma',
-      email,
-      emailVerified: true,
-      displayName: name,
-    };
-    setUser(demo);
-    localStorage.setItem('quoteback_demo_user', JSON.stringify(demo));
-    localStorage.setItem('quoteback_auth_token', 'user_sharma');
-    setLoading(false);
+    return null;
   };
 
   const logout = async () => {
@@ -107,13 +74,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } catch (err) {
       console.warn('SignOut warning:', err);
     }
-    localStorage.removeItem('quoteback_demo_user');
-    localStorage.removeItem('quoteback_auth_token');
     setUser(null);
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, authError, getIdToken, loginAsDemoUser, logout }}>
+    <AuthContext.Provider value={{ user, loading, authError, getIdToken, logout }}>
       {children}
     </AuthContext.Provider>
   );

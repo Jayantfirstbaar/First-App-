@@ -22,7 +22,7 @@ interface HomeViewProps {
   onSelectLead: (lead: Lead) => void;
   onOpenAIMessage: (lead: Lead) => void;
   onNavigateTab: (tab: 'leads' | 'followups' | 'reports') => void;
-  onSeedSampleData: () => void;
+  onSeedSampleData?: () => void;
 }
 
 export const HomeView: React.FC<HomeViewProps> = ({
@@ -296,16 +296,18 @@ export const HomeView: React.FC<HomeViewProps> = ({
           <div className="flex items-center justify-center space-x-2 pt-1">
             <button
               onClick={onOpenAddLead}
-              className="px-3.5 py-2 rounded-xl bg-[#087F68] hover:bg-[#066956] text-white font-bold text-xs shadow-xs"
+              className="px-3.5 py-2 rounded-xl bg-[#087F68] hover:bg-[#066956] text-white font-bold text-xs shadow-xs cursor-pointer"
             >
               Add First Lead
             </button>
-            <button
-              onClick={onSeedSampleData}
-              className="px-3.5 py-2 rounded-xl bg-white dark:bg-[#202A27] border border-[#E6EAE7] dark:border-[#26312E] text-[#087F68] font-semibold text-xs hover:bg-[#E8F5EF]"
-            >
-              Load Demo Leads
-            </button>
+            {onSeedSampleData && (
+              <button
+                onClick={onSeedSampleData}
+                className="px-3.5 py-2 rounded-xl bg-white dark:bg-[#202A27] border border-[#E6EAE7] dark:border-[#26312E] text-[#087F68] font-semibold text-xs hover:bg-[#E8F5EF] cursor-pointer"
+              >
+                Load Demo Leads
+              </button>
+            )}
           </div>
         </div>
       )}

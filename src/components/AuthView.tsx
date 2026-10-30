@@ -10,13 +10,14 @@ import {
   User,
   onAuthStateChanged
 } from 'firebase/auth';
-import { doc, setDoc, getDoc } from 'firebase/firestore';
-import { api } from '../services/api';
+import { doc, setDoc } from 'firebase/firestore';
 import { useAuth } from '../contexts/AuthContext';
-import { Sparkles, Mail, Lock, User as UserIcon, Eye, EyeOff, ArrowRight, Github, Chrome, AlertCircle, RefreshCw, CheckCircle2, AlertTriangle, Zap } from 'lucide-react';
+import { Sparkles, Mail, Lock, User as UserIcon, Eye, EyeOff, ArrowRight, Chrome, AlertCircle, RefreshCw, CheckCircle2 } from 'lucide-react';
+
+import { sanitizeFirestorePayload } from '../services/api';
 
 export const AuthView: React.FC = () => {
-  const { loginAsDemoUser, authError } = useAuth();
+  const { authError } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -26,7 +27,6 @@ export const AuthView: React.FC = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [gcpApiDisabled, setGcpApiDisabled] = useState(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [verificationSent, setVerificationSent] = useState(false);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
@@ -50,11 +50,12 @@ export const AuthView: React.FC = () => {
   }, [resendCooldown]);
 
   const syncUserProfile = async (user: User, name?: string) => {
+    const rawName = name || user.displayName || (email ? email.split('@')[0] : 'Studio Partner');
     const profile = {
       id: user.uid,
       email: user.email || '',
-      name: name || user.displayName || email.split('@')[0],
-      businessName: name || user.displayName || email.split('@')[0] + "'s Business",
+      name: rawName,
+      businessName: `${rawName}'s Studio`,
       businessType: 'Interior Design',
       languagePreference: 'hinglish' as const,
       timeZone: 'Asia/Kolkata',
@@ -62,19 +63,10 @@ export const AuthView: React.FC = () => {
       updatedAt: new Date().toISOString(),
     };
 
-    // Save to Firestore for redundancy/persistence
-    await setDoc(doc(db, 'users', user.uid), profile, { merge: true });
-
-    // Sync with backend API
     try {
-      const idToken = await user.getIdToken();
-      api.setToken(idToken);
-      await api.signup(profile).catch(async () => {
-        // If already exists, just update
-        await api.updateProfile(profile);
-      });
+      await setDoc(doc(db, 'users', user.uid), sanitizeFirestorePayload(profile), { merge: true });
     } catch (err) {
-      console.error('Failed to sync profile with backend:', err);
+      console.error('Failed to sync profile to Firestore:', err);
     }
   };
 
@@ -103,19 +95,12 @@ export const AuthView: React.FC = () => {
         setVerificationSent(true);
       } else {
         const userCredential = await signInWithEmailAndPassword(auth, email, password);
-        const idToken = await userCredential.user.getIdToken();
-        api.setToken(idToken);
         if (!userCredential.user.emailVerified) {
           setVerificationSent(true);
         }
       }
     } catch (err: any) {
-      if (err.message && (err.message.includes('token-service-api-has-not-been-used') || err.message.includes('securetoken.googleapis.com'))) {
-        setGcpApiDisabled(true);
-        setError('Firebase Token Service API is currently disabled or initializing for project 371309433233.');
-      } else {
-        setError(err.message);
-      }
+      setError(err.message || 'Authentication failed');
     } finally {
       setLoading(false);
     }
@@ -128,16 +113,11 @@ export const AuthView: React.FC = () => {
     try {
       const result = await signInWithPopup(auth, provider);
       await syncUserProfile(result.user);
-      const idToken = await result.user.getIdToken();
-      api.setToken(idToken);
     } catch (err: any) {
       if (err.code === 'auth/popup-blocked') {
         setError('Popup blocked. Please allow popups for this site.');
-      } else if (err.message && (err.message.includes('token-service-api-has-not-been-used') || err.message.includes('securetoken.googleapis.com'))) {
-        setGcpApiDisabled(true);
-        setError('Firebase Token Service API is disabled or initializing for project 371309433233.');
       } else {
-        setError(err.message);
+        setError(err.message || 'Google sign-in failed');
       }
     } finally {
       setLoading(false);
@@ -203,7 +183,7 @@ export const AuthView: React.FC = () => {
           <div className="space-y-3 pt-4">
             <button
               onClick={handleRefreshStatus}
-              className="w-full py-3.5 bg-[#087F68] text-white rounded-2xl font-bold text-sm shadow-lg shadow-[#087F68]/20 flex items-center justify-center space-x-2 transition active:scale-95"
+              className="w-full py-3.5 bg-[#087F68] text-white rounded-2xl font-bold text-sm shadow-lg shadow-[#087F68]/20 flex items-center justify-center space-x-2 transition active:scale-95 cursor-pointer"
             >
               <RefreshCw className="w-4 h-4" />
               <span>I&apos;ve verified my email</span>
@@ -212,7 +192,7 @@ export const AuthView: React.FC = () => {
             <button
               onClick={handleResendVerification}
               disabled={resendCooldown > 0}
-              className="w-full py-3.5 bg-white text-[#18211F] border border-[#E6EAE7] rounded-2xl font-bold text-sm hover:bg-[#F7F8F6] transition disabled:opacity-50"
+              className="w-full py-3.5 bg-white text-[#18211F] border border-[#E6EAE7] rounded-2xl font-bold text-sm hover:bg-[#F7F8F6] transition disabled:opacity-50 cursor-pointer"
             >
               {resendCooldown > 0 ? `Resend in ${resendCooldown}s` : 'Resend Verification Email'}
             </button>
@@ -220,7 +200,7 @@ export const AuthView: React.FC = () => {
 
           <button
             onClick={() => auth.signOut()}
-            className="text-xs text-[#6B7470] hover:text-[#18211F] underline pt-4"
+            className="text-xs text-[#6B7470] hover:text-[#18211F] underline pt-4 cursor-pointer"
           >
             Back to Sign In
           </button>
@@ -256,37 +236,6 @@ export const AuthView: React.FC = () => {
           </p>
         </div>
 
-        {/* GCP Token Service API Banner */}
-        {(gcpApiDisabled || (authError && authError.includes('token-service-api-has-not-been-used'))) && (
-          <div className="mb-6 p-4 bg-[#FEF9EE] border border-[#FDE6B8] rounded-2xl text-xs space-y-2">
-            <div className="flex items-center space-x-2 text-[#92400E] font-bold">
-              <AlertTriangle className="w-4 h-4 shrink-0" />
-              <span>Firebase Token Service API Initializing</span>
-            </div>
-            <p className="text-[#B45309] leading-relaxed">
-              Google Cloud Secure Token API is disabled or initializing for project <code className="bg-[#FDE6B8] px-1 py-0.5 rounded font-mono">371309433233</code>.
-            </p>
-            <div className="flex flex-col gap-2 pt-1">
-              <a
-                href="https://console.developers.google.com/apis/api/securetoken.googleapis.com/overview?project=371309433233"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="px-3 py-2 bg-[#D97706] hover:bg-[#B45309] text-white rounded-xl font-bold text-center transition"
-              >
-                Enable Secure Token API in GCP ↗
-              </a>
-              <button
-                type="button"
-                onClick={() => loginAsDemoUser(email || 'sharma.interiors@example.com', fullName || 'Rajesh Sharma')}
-                className="px-3 py-2 bg-[#087F68] hover:bg-[#066956] text-white rounded-xl font-bold text-center transition flex items-center justify-center space-x-1.5"
-              >
-                <Zap className="w-3.5 h-3.5" />
-                <span>Continue in Instant Preview Mode</span>
-              </button>
-            </div>
-          </div>
-        )}
-
         {isForgotPassword ? (
           <form onSubmit={handleForgotPassword} className="space-y-4">
             <div className="relative">
@@ -302,14 +251,14 @@ export const AuthView: React.FC = () => {
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-4 bg-[#087F68] text-white rounded-2xl font-bold text-sm shadow-lg shadow-[#087F68]/20 hover:bg-[#066956] transition active:scale-95 disabled:opacity-50 flex items-center justify-center"
+              className="w-full py-4 bg-[#087F68] text-white rounded-2xl font-bold text-sm shadow-lg shadow-[#087F68]/20 hover:bg-[#066956] transition active:scale-95 disabled:opacity-50 flex items-center justify-center cursor-pointer"
             >
               {loading ? <RefreshCw className="w-5 h-5 animate-spin" /> : 'Send Reset Link'}
             </button>
             <button
               type="button"
               onClick={() => setIsForgotPassword(false)}
-              className="w-full text-sm font-bold text-[#6B7470] hover:text-[#18211F]"
+              className="w-full text-sm font-bold text-[#6B7470] hover:text-[#18211F] cursor-pointer"
             >
               Back to Login
             </button>
@@ -320,19 +269,10 @@ export const AuthView: React.FC = () => {
               <button
                 onClick={handleGoogleAuth}
                 disabled={loading}
-                className="w-full py-3.5 bg-white border border-[#E6EAE7] rounded-2xl font-bold text-sm text-[#18211F] flex items-center justify-center space-x-3 hover:bg-[#F7F8F6] transition active:scale-95 disabled:opacity-50"
+                className="w-full py-3.5 bg-white border border-[#E6EAE7] rounded-2xl font-bold text-sm text-[#18211F] flex items-center justify-center space-x-3 hover:bg-[#F7F8F6] transition active:scale-95 disabled:opacity-50 cursor-pointer"
               >
                 <Chrome className="w-5 h-5 text-[#4285F4]" />
                 <span>Continue with Google</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => loginAsDemoUser(email || 'sharma.interiors@example.com', fullName || 'Rajesh Sharma')}
-                className="w-full py-2.5 bg-[#E8F5EF] hover:bg-[#D5EFE3] border border-[#CBE7DC] text-[#087F68] rounded-2xl font-bold text-xs flex items-center justify-center space-x-2 transition active:scale-95 cursor-pointer"
-              >
-                <Zap className="w-4 h-4 fill-current" />
-                <span>Quick Sign-In (Instant Preview)</span>
               </button>
             </div>
 
@@ -379,7 +319,7 @@ export const AuthView: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 text-[#6B7470] hover:text-[#18211F]"
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-[#6B7470] hover:text-[#18211F] cursor-pointer"
                 >
                   {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
@@ -403,7 +343,7 @@ export const AuthView: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => setIsForgotPassword(true)}
-                    className="text-xs font-bold text-[#087F68] hover:underline"
+                    className="text-xs font-bold text-[#087F68] hover:underline cursor-pointer"
                   >
                     Forgot password?
                   </button>
@@ -413,7 +353,7 @@ export const AuthView: React.FC = () => {
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full py-4 bg-[#087F68] text-white rounded-2xl font-bold text-sm shadow-lg shadow-[#087F68]/20 hover:bg-[#066956] transition active:scale-95 disabled:opacity-50 flex items-center justify-center space-x-2"
+                className="w-full py-4 bg-[#087F68] text-white rounded-2xl font-bold text-sm shadow-lg shadow-[#087F68]/20 hover:bg-[#066956] transition active:scale-95 disabled:opacity-50 flex items-center justify-center space-x-2 cursor-pointer"
               >
                 {loading ? <RefreshCw className="w-5 h-5 animate-spin" /> : (
                   <>
@@ -431,7 +371,7 @@ export const AuthView: React.FC = () => {
                   setError(null);
                   setSuccessMessage(null);
                 }}
-                className="text-sm text-[#6B7470]"
+                className="text-sm text-[#6B7470] cursor-pointer"
               >
                 {isRegister ? 'Already have an account?' : 'New to QuoteBack?'}{' '}
                 <span className="text-[#087F68] font-bold hover:underline">
@@ -449,10 +389,10 @@ export const AuthView: React.FC = () => {
           </div>
         )}
 
-        {error && (
+        {(error || authError) && (
           <div className="mt-4 p-3 bg-[#FDF2F3] border border-[#F7D2D6] rounded-xl text-[#C83C4B] text-xs flex items-center space-x-2 animate-in shake duration-300">
             <AlertCircle className="w-4 h-4 shrink-0" />
-            <span>{error}</span>
+            <span>{error || authError}</span>
           </div>
         )}
         {successMessage && (

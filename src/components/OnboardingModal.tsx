@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { UserProfile } from '../types';
 import { api } from '../services/api';
-import { Sparkles, MessageSquare, Clock, ArrowRight, Check, Building, ShieldCheck } from 'lucide-react';
+import { Sparkles, Check } from 'lucide-react';
 
 interface OnboardingModalProps {
   onComplete: (user: UserProfile) => void;
@@ -11,40 +11,30 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({ onComplete }) 
   const [step, setStep] = useState<'welcome' | 'form' | 'how_it_works'>('welcome');
 
   // Form fields
-  const [email, setEmail] = useState('');
   const [businessName, setBusinessName] = useState('');
   const [name, setName] = useState('');
   const [businessType, setBusinessType] = useState('Interior Design');
   const [languagePreference, setLanguagePreference] = useState<'en' | 'hi' | 'hinglish'>('hinglish');
-  const [reminderTime, setReminderTime] = useState('10:00');
   
-  const [isLoginMode, setIsLoginMode] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const handleAuthSubmit = async (e: React.FormEvent) => {
+  const handleSubmitProfile = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError(null);
 
     try {
-      if (isLoginMode) {
-        const { user } = await api.login(email);
-        onComplete(user);
-      } else {
-        const { user } = await api.signup({
-          email,
-          businessName,
-          name: name || businessName,
-          businessType,
-          languagePreference,
-          reminderTime,
-          timeZone: 'Asia/Kolkata',
-        });
-        setStep('how_it_works');
-      }
+      const updated = await api.updateProfile({
+        businessName: businessName.trim() || 'Interior Studio',
+        name: name.trim() || businessName.trim() || 'Studio Partner',
+        businessType,
+        languagePreference,
+        isProfileComplete: true,
+      });
+      setStep('how_it_works');
     } catch (err: any) {
-      setError(err.message || 'Authentication failed');
+      setError(err.message || 'Failed to save studio profile');
     } finally {
       setLoading(false);
     }
@@ -93,23 +83,10 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({ onComplete }) 
 
             <div className="space-y-2 pt-1">
               <button
-                onClick={() => {
-                  setIsLoginMode(false);
-                  setStep('form');
-                }}
-                className="w-full py-2.5 rounded-xl bg-[#087F68] hover:bg-[#066956] text-white font-bold text-xs shadow-xs transition active:scale-95"
+                onClick={() => setStep('form')}
+                className="w-full py-2.5 rounded-xl bg-[#087F68] hover:bg-[#066956] text-white font-bold text-xs shadow-xs transition active:scale-95 cursor-pointer"
               >
-                Create Account (Free Starter)
-              </button>
-
-              <button
-                onClick={() => {
-                  setIsLoginMode(true);
-                  setStep('form');
-                }}
-                className="w-full py-2 rounded-xl bg-[#F2F4F2] dark:bg-[#202A27] text-[#18211F] dark:text-[#EAEFEA] font-semibold text-xs hover:bg-[#E8EBE8] transition"
-              >
-                Already have an account? Sign In
+                Set Up Studio Profile
               </button>
             </div>
           </div>
@@ -119,10 +96,10 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({ onComplete }) 
           <div className="p-5 overflow-y-auto space-y-3.5">
             <div>
               <h3 className="text-base font-bold text-[#18211F] dark:text-white">
-                {isLoginMode ? 'Welcome Back' : 'Set Up Your Design Studio'}
+                Set Up Your Design Studio
               </h3>
               <p className="text-xs text-[#6B7470] mt-0.5">
-                {isLoginMode ? 'Sign in to access your quotations & pipeline.' : 'Just a few details to personalize your follow-ups.'}
+                Just a few details to personalize your follow-ups.
               </p>
             </div>
 
@@ -132,112 +109,84 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({ onComplete }) 
               </div>
             )}
 
-            <form onSubmit={handleAuthSubmit} className="space-y-2.5 text-xs sm:text-sm">
+            <form onSubmit={handleSubmitProfile} className="space-y-2.5 text-xs sm:text-sm">
               <div>
                 <label className="block text-[11px] font-semibold text-[#18211F] dark:text-[#EAEFEA] mb-1">
-                  Email Address <span className="text-[#C83C4B]">*</span>
+                  Business / Brand Name <span className="text-[#C83C4B]">*</span>
                 </label>
                 <input
-                  type="email"
+                  type="text"
                   required
-                  value={email}
-                  onChange={e => setEmail(e.target.value)}
-                  placeholder="e.g. contact@sharmainteriors.in"
+                  value={businessName}
+                  onChange={e => setBusinessName(e.target.value)}
+                  placeholder="e.g. Sharma Luxury Interiors"
                   className="w-full bg-[#F7F8F6] dark:bg-[#202A27] border border-[#E6EAE7] dark:border-[#26312E] rounded-xl p-2 text-xs text-[#18211F] dark:text-white"
                 />
               </div>
 
-              {!isLoginMode && (
-                <>
-                  <div>
-                    <label className="block text-[11px] font-semibold text-[#18211F] dark:text-[#EAEFEA] mb-1">
-                      Business / Brand Name <span className="text-[#C83C4B]">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      value={businessName}
-                      onChange={e => setBusinessName(e.target.value)}
-                      placeholder="e.g. Sharma Luxury Interiors"
-                      className="w-full bg-[#F7F8F6] dark:bg-[#202A27] border border-[#E6EAE7] dark:border-[#26312E] rounded-xl p-2 text-xs text-[#18211F] dark:text-white"
-                    />
-                  </div>
+              <div>
+                <label className="block text-[11px] font-semibold text-[#18211F] dark:text-[#EAEFEA] mb-1">
+                  Your Name
+                </label>
+                <input
+                  type="text"
+                  value={name}
+                  onChange={e => setName(e.target.value)}
+                  placeholder="e.g. Rajesh Sharma"
+                  className="w-full bg-[#F7F8F6] dark:bg-[#202A27] border border-[#E6EAE7] dark:border-[#26312E] rounded-xl p-2 text-xs text-[#18211F] dark:text-white"
+                />
+              </div>
 
-                  <div>
-                    <label className="block text-[11px] font-semibold text-[#18211F] dark:text-[#EAEFEA] mb-1">
-                      Your Name
-                    </label>
-                    <input
-                      type="text"
-                      value={name}
-                      onChange={e => setName(e.target.value)}
-                      placeholder="e.g. Rajesh Sharma"
-                      className="w-full bg-[#F7F8F6] dark:bg-[#202A27] border border-[#E6EAE7] dark:border-[#26312E] rounded-xl p-2 text-xs text-[#18211F] dark:text-white"
-                    />
-                  </div>
+              <div>
+                <label className="block text-[11px] font-semibold text-[#18211F] dark:text-[#EAEFEA] mb-1">
+                  Business Type
+                </label>
+                <select
+                  value={businessType}
+                  onChange={e => setBusinessType(e.target.value)}
+                  className="w-full bg-[#F7F8F6] dark:bg-[#202A27] border border-[#E6EAE7] dark:border-[#26312E] rounded-xl p-2 text-xs text-[#18211F] dark:text-white"
+                >
+                  <option value="Interior Design">Interior Design Studio</option>
+                  <option value="Modular Kitchen">Modular Kitchen & Wardrobes</option>
+                  <option value="Turnkey Fitout">Turnkey Fitouts</option>
+                  <option value="Architecture Studio">Architectural Firm</option>
+                  <option value="Custom Furniture">Custom Furniture</option>
+                </select>
+              </div>
 
-                  <div>
-                    <label className="block text-[11px] font-semibold text-[#18211F] dark:text-[#EAEFEA] mb-1">
-                      Business Type
-                    </label>
-                    <select
-                      value={businessType}
-                      onChange={e => setBusinessType(e.target.value)}
-                      className="w-full bg-[#F7F8F6] dark:bg-[#202A27] border border-[#E6EAE7] dark:border-[#26312E] rounded-xl p-2 text-xs text-[#18211F] dark:text-white"
+              <div>
+                <label className="block text-[11px] font-semibold text-[#18211F] dark:text-[#EAEFEA] mb-1">
+                  Preferred AI Message Language
+                </label>
+                <div className="grid grid-cols-3 gap-1 bg-[#F2F4F2] dark:bg-[#202A27] p-0.5 rounded-xl">
+                  {[
+                    { id: 'hinglish', label: 'Hinglish' },
+                    { id: 'en', label: 'English' },
+                    { id: 'hi', label: 'Hindi' },
+                  ].map(l => (
+                    <button
+                      key={l.id}
+                      type="button"
+                      onClick={() => setLanguagePreference(l.id as any)}
+                      className={`py-1 text-xs font-semibold rounded-lg transition ${
+                        languagePreference === l.id
+                          ? 'bg-white dark:bg-[#18211F] text-[#087F68] shadow-xs'
+                          : 'text-[#6B7470]'
+                      }`}
                     >
-                      <option value="Interior Design">Interior Design Studio</option>
-                      <option value="Modular Kitchen">Modular Kitchen & Wardrobes</option>
-                      <option value="Turnkey Fitout">Turnkey Fitouts</option>
-                      <option value="Architecture Studio">Architectural Firm</option>
-                      <option value="Custom Furniture">Custom Furniture</option>
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-[11px] font-semibold text-[#18211F] dark:text-[#EAEFEA] mb-1">
-                      Preferred AI Message Language
-                    </label>
-                    <div className="grid grid-cols-3 gap-1 bg-[#F2F4F2] dark:bg-[#202A27] p-0.5 rounded-xl">
-                      {[
-                        { id: 'hinglish', label: 'Hinglish' },
-                        { id: 'en', label: 'English' },
-                        { id: 'hi', label: 'Hindi' },
-                      ].map(l => (
-                        <button
-                          key={l.id}
-                          type="button"
-                          onClick={() => setLanguagePreference(l.id as any)}
-                          className={`py-1 text-xs font-semibold rounded-lg transition ${
-                            languagePreference === l.id
-                              ? 'bg-white dark:bg-[#18211F] text-[#087F68] shadow-xs'
-                              : 'text-[#6B7470]'
-                          }`}
-                        >
-                          {l.label}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                </>
-              )}
+                      {l.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
 
               <div className="pt-2">
                 <button
                   type="submit"
                   disabled={loading}
-                  className="w-full py-2.5 rounded-xl bg-[#087F68] hover:bg-[#066956] text-white font-bold text-xs shadow-xs transition active:scale-95"
+                  className="w-full py-2.5 rounded-xl bg-[#087F68] hover:bg-[#066956] text-white font-bold text-xs shadow-xs transition active:scale-95 cursor-pointer"
                 >
-                  {loading ? 'Please wait...' : isLoginMode ? 'Sign In' : 'Complete Setup & Open App'}
-                </button>
-              </div>
-
-              <div className="text-center pt-1">
-                <button
-                  type="button"
-                  onClick={() => setIsLoginMode(!isLoginMode)}
-                  className="text-xs text-[#087F68] font-semibold hover:underline"
-                >
-                  {isLoginMode ? "Need an account? Sign Up" : "Already have an account? Sign In"}
+                  {loading ? 'Please wait...' : 'Complete Setup & Open App'}
                 </button>
               </div>
             </form>
@@ -293,7 +242,7 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({ onComplete }) 
 
             <button
               onClick={handleFinishOnboarding}
-              className="w-full py-2.5 rounded-xl bg-[#087F68] hover:bg-[#066956] text-white font-bold text-xs shadow-xs active:scale-95 transition"
+              className="w-full py-2.5 rounded-xl bg-[#087F68] hover:bg-[#066956] text-white font-bold text-xs shadow-xs active:scale-95 transition cursor-pointer"
             >
               Go to Dashboard
             </button>

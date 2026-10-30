@@ -17,6 +17,8 @@ import { SettingsModal } from './components/SettingsModal';
 import { OnboardingModal } from './components/OnboardingModal';
 import { AuthView } from './components/AuthView';
 import { useAuth } from './contexts/AuthContext';
+import { MeView } from './components/views/MeView';
+import { ProfileCompletionModal } from './components/ProfileCompletionModal';
 
 export default function App() {
   const { user: firebaseUser, loading: authLoading, getIdToken } = useAuth();
@@ -25,11 +27,6 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<NavTab>('home');
   const [isAndroidFrame, setIsAndroidFrame] = useState(true);
-
-  // Available test accounts for multi-tenant isolation testing (Flow H)
-  const [availableAccounts, setAvailableAccounts] = useState<
-    Array<{ id: string; name: string; businessName: string; email: string }>
-  >([]);
 
   // Modals state
   const [showAddLeadModal, setShowAddLeadModal] = useState(false);
@@ -45,16 +42,31 @@ export default function App() {
 
   const todayStr = new Date().toISOString().split('T')[0];
 
+  const applyTheme = (themeMode?: 'light' | 'dark' | 'system') => {
+    const mode = themeMode || user?.themePreference || 'light';
+    if (mode === 'dark') {
+      document.documentElement.classList.add('dark');
+    } else if (mode === 'light') {
+      document.documentElement.classList.remove('dark');
+    } else {
+      if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+        document.documentElement.classList.add('dark');
+      } else {
+        document.documentElement.classList.remove('dark');
+      }
+    }
+  };
+
   const loadData = async () => {
     try {
       const currentUser = await api.getCurrentUser();
       setUser(currentUser);
+      if (currentUser?.themePreference) {
+        applyTheme(currentUser.themePreference);
+      }
 
       const userLeads = await api.getLeads();
       setLeads(userLeads);
-
-      const accounts = await api.getDemoAccounts();
-      setAvailableAccounts(accounts);
 
       // Check if user has overdue follow-ups to show notification reminder
       const overdue = userLeads.filter(l => categorizeFollowUp(l, todayStr) === 'overdue');
@@ -85,15 +97,11 @@ export default function App() {
   useEffect(() => {
     const syncTokenAndLoad = async () => {
       if (firebaseUser && firebaseUser.emailVerified) {
-        const token = await getIdToken();
-        if (token) {
-          api.setToken(token);
-          loadData();
-        }
+        loadData();
       }
     };
     syncTokenAndLoad();
-  }, [firebaseUser, getIdToken]);
+  }, [firebaseUser]);
 
   // Authenticated route guard
   if (authLoading) return (
@@ -108,22 +116,6 @@ export default function App() {
   );
 
   if (!firebaseUser || !firebaseUser.emailVerified) return <AuthView />;
-
-  const handleSwitchUser = async (targetUserId: string) => {
-    setLoading(true);
-    try {
-      const switchedUser = await api.switchUser(targetUserId);
-      setUser(switchedUser);
-      const userLeads = await api.getLeads();
-      setLeads(userLeads);
-      setSelectedLeadForDetail(null);
-      setSelectedLeadForAI(null);
-    } catch (err) {
-      console.error('Failed to switch user:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handleSaveLead = async (leadData: Partial<Lead>) => {
     if (editingLead) {
@@ -191,7 +183,7 @@ export default function App() {
     );
   }
 
-  const activeLeadsCount = leads.filter(l => l.stage !== 'Won' && l.stage !== 'Lost').length;
+  const showProfileCompletion = user && user.isProfileComplete === false;
 
   return (
     <div className="min-h-screen bg-[#F7F8F6] dark:bg-[#121816] font-sans antialiased text-[#18211F] dark:text-[#EAEFEA] selection:bg-[#087F68] selection:text-white overflow-x-hidden">
@@ -201,8 +193,7 @@ export default function App() {
         isAndroidFrame={isAndroidFrame}
         onToggleFrame={() => setIsAndroidFrame(!isAndroidFrame)}
         onOpenSettings={() => setShowSettingsModal(true)}
-        onSwitchUser={handleSwitchUser}
-        availableAccounts={availableAccounts}
+        onOpenMeTab={() => setActiveTab('me')}
         dueTodayCount={dueTodayCount}
         overdueCount={overdueCount}
       />
@@ -225,7 +216,7 @@ export default function App() {
           </div>
           <button
             onClick={() => setNotificationBanner(null)}
-            className="ml-3 text-[11px] font-semibold opacity-70 hover:opacity-100 transition whitespace-nowrap"
+            className="ml-3 text-[11px] font-semibold opacity-70 hover:opacity-100 transition whitespace-nowrap cursor-pointer"
           >
             Dismiss
           </button>
@@ -261,10 +252,6 @@ export default function App() {
               onSelectLead={lead => setSelectedLeadForDetail(lead)}
               onOpenAIMessage={lead => setSelectedLeadForAI(lead)}
               onNavigateTab={tab => setActiveTab(tab)}
-              onSeedSampleData={async () => {
-                await api.seedSampleLeads();
-                loadData();
-              }}
             />
           )}
 
@@ -297,8 +284,33 @@ export default function App() {
               leads={leads}
             />
           )}
+
+          {activeTab === 'me' && (
+            <MeView
+              user={user}
+              onProfileUpdated={loadData}
+              onLeadsReloadNeeded={loadData}
+              onThemeChanged={(newTheme) => {
+                applyTheme(newTheme);
+                if (user) {
+                  setUser({ ...user, themePreference: newTheme });
+                }
+              }}
+            />
+          )}
         </main>
       </AndroidFrame>
+
+      {/* Post-Login Profile Completion Modal */}
+      {showProfileCompletion && user && (
+        <ProfileCompletionModal
+          user={user}
+          onComplete={updatedUser => {
+            setUser(updatedUser);
+            loadData();
+          }}
+        />
+      )}
 
       {/* Add / Edit Lead Modal */}
       {showAddLeadModal && (
@@ -373,3 +385,4 @@ export default function App() {
     </div>
   );
 }
+

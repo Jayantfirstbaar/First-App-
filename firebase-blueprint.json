@@ -8,11 +8,19 @@
         "id": { "type": "string" },
         "email": { "type": "string", "format": "email" },
         "name": { "type": "string" },
+        "phoneNumber": { "type": "string" },
+        "photoURL": { "type": "string" },
+        "isProfileComplete": { "type": "boolean" },
         "businessName": { "type": "string" },
         "businessType": { "type": "string" },
-        "isPro": { "type": "boolean" },
-        "aiUsageThisMonth": { "type": "number" },
-        "createdAt": { "type": "string", "format": "date-time" }
+        "languagePreference": { "type": "string", "enum": ["en", "hi", "hinglish"] },
+        "timeZone": { "type": "string" },
+        "reminderTime": { "type": "string" },
+        "themePreference": { "type": "string", "enum": ["light", "dark", "system"] },
+        "notificationEnabled": { "type": "boolean" },
+        "authProvider": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
       },
       "required": ["id", "email", "name"]
     },
@@ -25,19 +33,71 @@
         "userId": { "type": "string" },
         "customerName": { "type": "string" },
         "phone": { "type": "string" },
-        "stage": { "type": "string" }
+        "source": { "type": "string" },
+        "projectType": { "type": "string" },
+        "estimatedValue": { "type": "number" },
+        "quotationAmount": { "type": "number" },
+        "quotationSentDate": { "type": "string" },
+        "stage": { "type": "string" },
+        "priority": { "type": "string" },
+        "nextFollowUpDate": { "type": "string" },
+        "nextFollowUpTime": { "type": "string" },
+        "followUpCompleted": { "type": "boolean" },
+        "notes": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
       },
-      "required": ["id", "userId", "customerName", "stage"]
+      "required": ["id", "userId", "customerName", "phone", "stage"]
+    },
+    "Quotation": {
+      "title": "Quotation",
+      "description": "Quotation record for a lead",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "leadId": { "type": "string" },
+        "amount": { "type": "number" },
+        "description": { "type": "string" },
+        "sentDate": { "type": "string" },
+        "validUntilDate": { "type": "string" },
+        "status": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "userId", "leadId", "amount", "status"]
+    },
+    "Activity": {
+      "title": "Activity",
+      "description": "Activity timeline item for a lead",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "leadId": { "type": "string" },
+        "type": { "type": "string" },
+        "details": { "type": "string" },
+        "timestamp": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "userId", "leadId", "type", "details", "timestamp"]
     }
   },
   "firestore": {
     "/users/{userId}": {
       "schema": "User",
-      "description": "User profiles"
+      "description": "User profile document"
     },
     "/users/{userId}/leads/{leadId}": {
       "schema": "Lead",
-      "description": "User specific leads"
+      "description": "Customer leads subcollection"
+    },
+    "/users/{userId}/leads/{leadId}/activities/{activityId}": {
+      "schema": "Activity",
+      "description": "Lead activities subcollection"
+    },
+    "/users/{userId}/quotations/{quotationId}": {
+      "schema": "Quotation",
+      "description": "Quotations subcollection"
     }
   }
 }

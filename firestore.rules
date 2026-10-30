@@ -1,16 +1,75 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Helper functions
-    function isSignedIn() { return request.auth != null; }
-    function isEmailVerified() { return request.auth.token.email_verified == true; }
-    function isOwner(userId) { return isSignedIn() && request.auth.uid == userId; }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isEmailVerified() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function isOwner(userId) {
+      return isEmailVerified() && request.auth.uid == userId;
+    }
+
+    function isValidStage(stage) {
+      return stage in ['New', 'Contacted', 'Site Visit Scheduled', 'Quotation Sent', 'Negotiation', 'Won', 'Lost'];
+    }
+
+    function isValidAmount(val) {
+      return val is number && val >= 0 && val < 10000000000;
+    }
+
+    function isValidPhone(phone) {
+      return phone is string && phone.size() >= 10 && phone.size() <= 15;
+    }
+
+    // Default deny catch-all
+    match /{document=**} {
+      allow read, write: if false;
+    }
 
     match /users/{userId} {
-      allow read, write: if isOwner(userId) && isEmailVerified();
-      
+      allow get: if isOwner(userId);
+      allow create: if isOwner(userId) &&
+        !request.resource.data.keys().hasAny(['aiUsage', 'isPro']) &&
+        request.resource.data.email is string &&
+        request.resource.data.name is string && request.resource.data.name.size() <= 100 &&
+        (!('photoURL' in request.resource.data) || request.resource.data.photoURL == null || (request.resource.data.photoURL is string && request.resource.data.photoURL.size() <= 200000));
+
+      allow update: if isOwner(userId) &&
+        !request.resource.data.diff(resource.data).affectedKeys().hasAny(['aiUsage', 'isPro', 'id']) &&
+        (!('name' in request.resource.data) || (request.resource.data.name is string && request.resource.data.name.size() <= 100)) &&
+        (!('photoURL' in request.resource.data) || request.resource.data.photoURL == null || (request.resource.data.photoURL is string && request.resource.data.photoURL.size() <= 200000));
+
+      allow delete: if isOwner(userId);
+
       match /leads/{leadId} {
-        allow read, write: if isOwner(userId) && isEmailVerified();
+        allow read: if isOwner(userId);
+        
+        allow create: if isOwner(userId) &&
+          isValidStage(request.resource.data.stage) &&
+          isValidPhone(request.resource.data.phone) &&
+          isValidAmount(request.resource.data.estimatedValue) &&
+          (!('quotationAmount' in request.resource.data) || isValidAmount(request.resource.data.quotationAmount));
+
+        allow update: if isOwner(userId) &&
+          (!('stage' in request.resource.data) || isValidStage(request.resource.data.stage)) &&
+          (!('phone' in request.resource.data) || isValidPhone(request.resource.data.phone)) &&
+          (!('estimatedValue' in request.resource.data) || isValidAmount(request.resource.data.estimatedValue)) &&
+          (!('quotationAmount' in request.resource.data) || isValidAmount(request.resource.data.quotationAmount));
+
+        allow delete: if isOwner(userId);
+
+        match /activities/{activityId} {
+          allow read, write: if isOwner(userId);
+        }
+      }
+
+      match /quotations/{quotationId} {
+        allow read, write: if isOwner(userId);
       }
     }
   }

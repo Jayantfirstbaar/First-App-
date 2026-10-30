@@ -29,11 +29,17 @@ export interface UserProfile {
   id: string;
   email: string;
   name: string;
+  phoneNumber?: string;
+  photoURL?: string;
+  isProfileComplete?: boolean;
   businessName: string;
   businessType: string;
   languagePreference: 'en' | 'hi' | 'hinglish';
   timeZone: string;
   reminderTime: string;
+  themePreference?: 'light' | 'dark' | 'system';
+  notificationEnabled?: boolean;
+  authProvider?: 'google' | 'email' | 'other';
   aiUsageThisMonth: number;
   createdAt: string;
   updatedAt: string;
